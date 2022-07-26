@@ -8,4 +8,8 @@ requests = "*"
 fastapi =  "0.79.0"
 
 [dev-packages]
-pytest = "*"
+pytest = "==5.0.1"
+pytest-mock = "==3.2.0"
+pytest-watch = "==4.2.0"
+python-dotenv = "==0.10"
+requests-mock = "==1.7.0"
