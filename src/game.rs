@@ -1,45 +1,19 @@
 use std::fmt;
 
-
-// class Color(Flag):
-//     RED = True
-//     GREEN = False
-
+#[derive(Debug,Clone)]
 pub enum Color {
     RED,
     GREEN,
 }
 
-impl fmt::Display for Color {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       match *self {
-           Color::RED => write!(f, "R"),
-           Color::GREEN => write!(f, "G")
-       }
-    }
-}
-
-// class Size(IntEnum):
-//     BIG = 3
-//     MID = 2
-//     SMALL = 1
-
-
+#[derive(Debug,Clone)]
 pub enum Size {
     BIG,
     MID,
     SMALL,
 }
-impl fmt::Display for Size {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       match *self {
-           Size::BIG => write!(f, "Big"),
-           Size::MID => write!(f, "Mid"),
-           Size::SMALL => write!(f, "Small")
-       }
-    }
-}
 
+#[derive(Debug,Clone)]
 pub struct Token {
     color : Color,
     size : Size,
@@ -53,8 +27,28 @@ impl Token {
     }
 }
 
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "color: {}, size: {}", self.color, self.size)
+#[derive(Debug,Clone)]
+pub struct Block {
+    tokens : Vec<Token>,
+}
+
+impl Block {
+    pub fn new(tokens: Vec<Token>) -> Block {
+        Block {
+            tokens
+        }
     }
+    pub fn get_outermost_token(&self) -> Option<Token> {
+        self.tokens.last().cloned()
+    }
+
+
+
+}
+
+
+
+#[derive(Debug,Default,Clone)]
+pub struct Board {
+    tokens : Vec<Token>,
 }
