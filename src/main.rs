@@ -8,5 +8,5 @@ fn main() {
     let tokens = vec![t1,t2];
     let b = game::Block::new(tokens);
     println!("{:?}", b);
-    println!("{:?}", b.get_outermost_token());
+    println!("{:?}", b.pop_outermost_token());
 }

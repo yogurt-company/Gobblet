@@ -41,7 +41,11 @@ impl Block {
     pub fn get_outermost_token(&self) -> Option<Token> {
         self.tokens.last().cloned()
     }
-
+    pub fn pop_outermost_token(&mut self) -> Option<Token>  {
+        let last_token = self.tokens.last().cloned();
+        self.tokens.remove(self.tokens.len() - 1);
+        last_token
+    }
 
 
 }
