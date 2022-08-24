@@ -30,7 +30,7 @@ impl Token {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,Default)]
 pub struct Block {
     tokens : Vec<Token>,
 }
@@ -39,6 +39,11 @@ impl Block {
     pub fn new(tokens: Vec<Token>) -> Block {
         Block {
             tokens
+        }
+    }
+    pub fn default() -> Block {
+        Block {
+            tokens : Vec::new()
         }
     }
     pub fn get_outermost_token(&self) -> Option<Token> {
@@ -75,54 +80,13 @@ impl Block {
 
 #[derive(Debug,Default,Clone)]
 pub struct Board {
-    plate : Vec<Vec<Block>>,
+    pub plate : [[Block;3]; 3],
 }
 
 impl Board {
-    pub fn new() -> Board {
+    pub fn new(blocks: [[Block; 3]; 3]) -> Board {
         Board {
-            plate : Vec::new(),
+            plate : blocks
         }
     }
-    pub fn get_plate(&self) -> &Vec<Vec<Block>> {
-        &self.plate
-    }
-    pub fn get_plate_mut(&mut self) -> &mut Vec<Vec<Block>> {
-        &mut self.plate
-    }
-    pub fn get_row(&self, row:usize) -> &Vec<Block> {
-        &self.plate[row]
-    }
-    pub fn get_row_mut(&mut self, row:usize) -> &mut Vec<Block> {
-        &mut self.plate[row]
-    }
-    pub fn get_col(&self, col:usize) -> &Vec<Block> {
-        let mut col = Vec::new();
-        for row in 0..self.plate.len() {
-            col.push(self.plate[row][col]);
-        }
-        &col
-    }
-    pub fn get_col_mut(&mut self, col:usize) -> &mut Vec<Block> {
-        let mut col = Vec::new();
-        for row in 0..self.plate.len() {
-            col.push(self.plate[row][col]);
-        }
-        &mut col
-    }
-    pub fn get_block(&self, row:usize, col:usize) -> &Block {
-        &self.plate[row][col]
-    }
-    pub fn get_block_mut(&mut self, row:usize, col:usize) -> &mut Block {
-        &mut self.plate[row][col]
-    }
-    pub fn get_block_mut_by_token(&mut self, token:Token) -> &mut Block {
-        for row in 0..self.plate.len() {
-            for col in 0..self.plate[row].len() {
-                if self.plate[row][col].get_outermost_token() == Some(token) {
-                    return &mut self.plate[row][col];
-                }
-            }
-        }
-        panic!("No block found with token {:?}", token);
 }
