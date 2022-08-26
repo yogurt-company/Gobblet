@@ -1,5 +1,4 @@
-use crate::game::{Board, Token};
-use int_enum::IntEnum;
+use crate::game::{Token};
 mod game;
 
 
@@ -12,8 +11,7 @@ fn main() {
     let mut b = game::Block::new(tokens);
     println!("{:?}", b.is_stackable(Token::new(game::Color::RED, game::Size::BIG)));
 
-    let board = Board::default();
-    let board_new = Board::new(board.plate.clone());
-    println!("{:?}", board_new);
-
+    // let board = Board::default();
+    // let board_new = Board::new(board.plate.clone());
+    // println!("{:?}", board_new);
 }
