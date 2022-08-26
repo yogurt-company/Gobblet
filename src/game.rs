@@ -1,6 +1,7 @@
 use int_enum::IntEnum;
 use std::fmt;
 use rstest::*;
+use std::collections::HashMap;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
@@ -9,7 +10,7 @@ pub enum Color {
     GREEN = 1,
 }
 
-#[repr(u8)]
+#[repr(usize)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, PartialOrd)]
 pub enum Size {
     BIG = 2,
@@ -143,6 +144,52 @@ impl Board {
     }
 }
 
+
+struct Player {
+    color: Color,
+    inventory: [i8;3],
+}
+impl Player {
+    pub fn new(color:Color) -> Player {
+        Player {
+            color,
+            inventory: [2,2,2],
+        }
+    }
+
+    pub fn get_token(&mut self, size:Size) -> Option<Token> {
+        if self.inventory[size as usize] > 0 {
+            self.inventory[size as usize] -= 1;
+            Some(Token::new(self.color, size))
+        } else {
+            None
+        }
+    }
+    
+    pub fn place_from_inventory(&mut self, size:Size, board:&mut Board, x:usize, y:usize) -> bool {
+        if self.inventory[size as usize] > 0 {
+            if board.plate[y][x].push_token(Token::new(self.color, size)) {
+                self.inventory[size as usize] -= 1;
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn place_from_board(&mut self, board:&mut Board, x:usize, y:usize, x2:usize, y2:usize) -> bool {
+        if board.is_valid_take_from_board(x, y) {
+            let token = board.plate[y][x].pop_outermost_token();
+            if board.plate[y2][x2].push_token(token) {
+                return true;
+            }
+            return false
+        }
+        return false
+    }
+
+}
+
+
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -194,4 +241,7 @@ mod tests {
         ]);
         assert!(end_game_board.is_gameover().is_none());
     }
+
 }
+
+
