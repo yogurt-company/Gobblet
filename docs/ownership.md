@@ -36,7 +36,7 @@ fn main() {
 我們知道當一個數值所有權被轉移後，原來的變數就不能再使用該數值。然而有**trait**可以改變這個行為，它叫做**Copy**。簡單來說，當**x = y**發生時若**y**是可以被copy impl的話就會自動使用copy trait。
 [詳細關於trait](https://doc.rust-lang.org/std/marker/trait.Copy.html)
 
-![ownership-2](./images/ownership-2.jpeg)
+![ownership-2](./images/ownership/ownership-2.jpeg)
 
 第二個例子:
 ```
@@ -46,7 +46,7 @@ fn main() {
     println!("a: {} b: {}", a, b);
 }
 ```
-![ownership-1](./images/ownership-1.png)
+![ownership-1](./images/ownership/ownership-1.png)
 
 執行後卻發現編譯不過，原因是因為**String**的資料是儲存在Heap(堆積)上面而不是Stack(堆疊)上，並且**String*類型無法使用copy trait。
 
@@ -54,7 +54,7 @@ fn main() {
 但如果是Heap上Copy一份一樣的數據花的代價太大，所以當b要等於a的值的時候，賦予的其實是指向Heap資料的pointer。
 還記得Ownership的第一條規則嗎？**同時間只能有一個擁有者**，"hello"這個數據的擁有者從a轉移到b身上，因此無法再繼續使用a變數了。
 
-![ownership-3](./images/ownership-3.jpeg)
+![ownership-3](./images/ownership/ownership-3.jpeg)
 
 
 當變數傳到函式中也會發生一樣的行為。
