@@ -8,13 +8,13 @@
 function test (isNumber) {
   try {
     if (isNumber === false) {
-			throw new Error("this is not a number");		
-		}
-		
-		return { success: true, message: "this is a number" };
-	} catch (e) {
-		return { success: false, message: e.message }
-	}
+    	throw new Error("this is not a number");		
+    }
+    
+    return { success: true, message: "this is a number" };
+  } catch (e) {
+    return { success: false, message: e.message }
+  }
 }
 ```
 
@@ -51,13 +51,13 @@ fn main() {
 }
 
 fn a() {
-		b(10);
+    b(10);
 }
 
 fn b(n: i32) {
-		if n == 10 {
-				panic!("panic 10!");
-		}
+    if n == 10 {
+        panic!("panic 10!");
+    }
 }
 ```
 
@@ -95,8 +95,8 @@ fn read_file() {
 
 ```
 enum Result<T, E> {
-		Ok(T),
-		Err(E)
+    Ok(T),
+    Err(E)
 }
 ```
 
