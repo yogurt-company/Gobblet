@@ -1,15 +1,24 @@
 use int_enum::IntEnum;
 use std::io;
 use rstest::*;
-// use std::collections::HashMap;
+use boolenum::BoolEnum;
 use rand::Rng;
 use uuid::Uuid;
-
+use std::ops::Not;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
 pub enum Color {
     RED = 0,
     GREEN = 1,
+}
+impl Not for Color {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        match self {
+            Color::RED => Color::GREEN,
+            Color::GREEN => Color::RED,
+        }
+    }
 }
 
 #[repr(usize)]
@@ -33,17 +42,11 @@ impl Token {
     }
 }
 
-#[derive(Debug,Default)]
+#[derive(Debug,Default,Clone)]
 pub struct Block {
     tokens: Vec<Token>,
 }
 
-impl Copy for Block { }
-impl Clone for Block {
-    fn clone(&self) -> Block {
-        *self
-    }
-}
 
 impl Block {
     pub fn new(tokens: Vec<Token>) -> Block {
@@ -88,11 +91,7 @@ impl Board {
     pub fn new(blocks: [[Block; 3]; 3]) -> Board {
         Board { plate: blocks }
     }
-    pub fn default() -> Board {
-        Board {
-            plate:[[Block::default();3];3],
-        }
-    }
+
 
     fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<Color> {
         let result = pattern
@@ -219,70 +218,70 @@ struct Game {
 impl Game {
     pub fn new() -> Game {
         let mut rng = rand::thread_rng();
-        let round_flag = match rng.gen_range(0, 1) {
+        let round_flag = match rng.gen_range(0..2) {
             0 => Color::RED,
             1 => Color::GREEN,
             _ => Color::RED,
         };
         Game {
             uid: Uuid::new_v4().to_string(),
-            board: Board::default(),
+            board: empty_board(),
             round_flag,
             players: [Player::new(round_flag), Player::new(!round_flag)],
         }
     }
 
-    pub fn processing(&mut self) {
-        while self.board.is_gameover().is_none() {
-            self.cmd(&mut self.players[self.round_flag as usize]);
-            self.round_flag = !self.round_flag;
-        }
-        println!("end");
-    }
-
-    pub fn cmd(&mut self, player: &mut Player) {
-        println!("debug msg");
-        self.board.display_board();
-        let mut need_to_conti = true;
-        while need_to_conti {
-            let mut in_str = String::new();
-            io::stdin().read_line(&mut in_str).unwrap();
-            let in_str = in_str.trim();
-            if in_str == "a" {
-                self.board.display_board();
-            } else if in_str == "b" {
-                let mut size = String::new();
-                io::stdin().read_line(&mut size).unwrap();
-                let size = size.trim();
-                let mut target = String::new();
-                io::stdin().read_line(&mut target).unwrap();
-                let target: Vec<usize> = target
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                let size = match size {
-                    "b" => Size::BIG,
-                    "m" => Size::MID,
-                    "s" => Size::SMALL,
-                    _ => continue,
-                };
-                if player.place_from_inventory(size, &mut self.board, target[0], target[1]) {
-                    break;
-                }
-            } else if in_str == "c" {
-                let mut from = String::new();
-                io::stdin().read_line(&mut from).unwrap();
-                let from: Vec<usize> = from
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                let mut target = String::new();
-                io::stdin().read_line(&mut target).unwrap();
-            }
-        }
-    }
+    // pub fn processing(&mut self) {
+    //     while self.board.is_gameover().is_none() {
+    //         self.cmd(&mut self.players[self.round_flag as usize]);
+    //         self.round_flag = !self.round_flag;
+    //     }
+    //     println!("end");
+    // }
+    //
+    // pub fn cmd(&mut self, player: &mut Player) {
+    //     println!("debug msg");
+    //     self.board.display();
+    //     let mut need_to_conti = true;
+    //     while need_to_conti {
+    //         let mut in_str = String::new();
+    //         io::stdin().read_line(&mut in_str).unwrap();
+    //         let in_str = in_str.trim();
+    //         if in_str == "a" {
+    //             self.board.display();
+    //         } else if in_str == "b" {
+    //             let mut size = String::new();
+    //             io::stdin().read_line(&mut size).unwrap();
+    //             let size = size.trim();
+    //             let mut target = String::new();
+    //             io::stdin().read_line(&mut target).unwrap();
+    //             let target: Vec<usize> = target
+    //                 .trim()
+    //                 .split(",")
+    //                 .map(|x| x.parse::<usize>().unwrap())
+    //                 .collect();
+    //             let size = match size {
+    //                 "b" => Size::BIG,
+    //                 "m" => Size::MID,
+    //                 "s" => Size::SMALL,
+    //                 _ => continue,
+    //             };
+    //             if player.place_from_inventory(size, &mut self.board, target[0], target[1]) {
+    //                 break;
+    //             }
+    //         } else if in_str == "c" {
+    //             let mut from = String::new();
+    //             io::stdin().read_line(&mut from).unwrap();
+    //             let from: Vec<usize> = from
+    //                 .trim()
+    //                 .split(",")
+    //                 .map(|x| x.parse::<usize>().unwrap())
+    //                 .collect();
+    //             let mut target = String::new();
+    //             io::stdin().read_line(&mut target).unwrap();
+    //         }
+    //     }
+    // }
 }
 
 #[fixture]
@@ -353,7 +352,7 @@ mod test_board {
 
     #[rstest]
     fn test_display(mut end_board: Board) {
-        end_board.display_board();
+        end_board.display();
     }
 }
 
