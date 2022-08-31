@@ -1,22 +1,22 @@
+use colored::*;
 use int_enum::IntEnum;
-use std::io;
-use rstest::*;
-use boolenum::BoolEnum;
 use rand::Rng;
-use uuid::Uuid;
+use rstest::*;
+use std::io;
 use std::ops::Not;
+use uuid::Uuid;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
-pub enum Color {
+pub enum TokenColor {
     RED = 0,
     GREEN = 1,
 }
-impl Not for Color {
+impl Not for TokenColor {
     type Output = Self;
     fn not(self) -> Self::Output {
         match self {
-            Color::RED => Color::GREEN,
-            Color::GREEN => Color::RED,
+            TokenColor::RED => TokenColor::GREEN,
+            TokenColor::GREEN => TokenColor::RED,
         }
     }
 }
@@ -29,24 +29,36 @@ pub enum Size {
     SMALL = 0,
 }
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct Token {
-    color: Color,
+    color: TokenColor,
     size: Size,
 }
 
 impl Token {
-    pub fn new(color: Color, size: Size) -> Token {
+    pub fn new(color: TokenColor, size: Size) -> Token {
         Token { color, size }
+    }
+    pub fn to_string(&self) -> String {
+        match self.color {
+            TokenColor::RED => match self.size {
+                Size::BIG => "🔴".red().bold().to_string(),
+                Size::MID => "🔴".red().to_string(),
+                Size::SMALL => "🔴".red().dimmed().to_string(),
+            },
+            TokenColor::GREEN => match self.size {
+                Size::BIG => "🟢".green().bold().to_string(),
+                Size::MID => "🟢".green().to_string(),
+                Size::SMALL => "🟢".green().dimmed().to_string(),
+            },
+        }
     }
 }
 
-#[derive(Debug,Default,Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Block {
     tokens: Vec<Token>,
 }
-
 
 impl Block {
     pub fn new(tokens: Vec<Token>) -> Block {
@@ -92,25 +104,24 @@ impl Board {
         Board { plate: blocks }
     }
 
-
-    fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<Color> {
+    fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<TokenColor> {
         let result = pattern
             .iter()
             .map(|axis| self.plate[axis[0]][axis[1]].get_outermost_token())
             .filter(|t| t.is_some())
             .map(|t| t.unwrap().color)
             .fold([0, 0], |acc, c| match c {
-                Color::RED => [acc[0] + 1, acc[1]],
-                Color::GREEN => [acc[0], acc[1] + 1],
+                TokenColor::RED => [acc[0] + 1, acc[1]],
+                TokenColor::GREEN => [acc[0], acc[1] + 1],
                 _ => acc,
             });
         match result {
-            [3, 0] => Some(Color::RED),
-            [0, 3] => Some(Color::GREEN),
+            [3, 0] => Some(TokenColor::RED),
+            [0, 3] => Some(TokenColor::GREEN),
             _ => None,
         }
     }
-    pub fn is_gameover(&self) -> Option<Color> {
+    pub fn is_gameover(&self) -> Option<TokenColor> {
         let patterns: [[[usize; 2]; 3]; 8] = [
             [[2, 0], [1, 1], [0, 2]],
             [[0, 0], [1, 1], [2, 2]],
@@ -147,14 +158,10 @@ impl Board {
             for block in row.iter() {
                 match block.get_outermost_token() {
                     Some(token) => {
-                        print!(
-                            "{:?} {:?} ",
-                            token.color,
-                            token.size
-                        );
+                        print!("{} ", token.to_string());
                     }
                     None => {
-                        print!("None None ");
+                        print!(" X ");
                     }
                 }
             }
@@ -163,14 +170,13 @@ impl Board {
     }
 }
 
-
 struct Player {
-    color: Color,
+    color: TokenColor,
     inventory: [u8; 3],
 }
 
 impl Player {
-    pub fn new(color: Color) -> Player {
+    pub fn new(color: TokenColor) -> Player {
         Player {
             color,
             inventory: [2, 2, 2],
@@ -186,7 +192,13 @@ impl Player {
         }
     }
 
-    pub fn place_from_inventory(&mut self, size: Size, board: &mut Board, x: usize, y: usize) -> bool {
+    pub fn place_from_inventory(
+        &mut self,
+        size: Size,
+        board: &mut Board,
+        x: usize,
+        y: usize,
+    ) -> bool {
         if self.inventory[size as usize] > 0 {
             if board.plate[y][x].push_token(Token::new(self.color, size)) {
                 self.inventory[size as usize] -= 1;
@@ -196,7 +208,14 @@ impl Player {
         false
     }
 
-    pub fn place_from_board(&mut self, board: &mut Board, x: usize, y: usize, x2: usize, y2: usize) -> bool {
+    pub fn place_from_board(
+        &mut self,
+        board: &mut Board,
+        x: usize,
+        y: usize,
+        x2: usize,
+        y2: usize,
+    ) -> bool {
         if board.is_valid_take_from_board(x, y) {
             let token = board.plate[y][x].pop_outermost_token();
             if board.plate[y2][x2].push_token(token) {
@@ -208,10 +227,10 @@ impl Player {
     }
 }
 
-struct Game {
+pub struct Game {
     uid: String,
     board: Board,
-    round_flag: Color,
+    round_flag: TokenColor,
     players: [Player; 2],
 }
 
@@ -219,9 +238,9 @@ impl Game {
     pub fn new() -> Game {
         let mut rng = rand::thread_rng();
         let round_flag = match rng.gen_range(0..2) {
-            0 => Color::RED,
-            1 => Color::GREEN,
-            _ => Color::RED,
+            0 => TokenColor::RED,
+            1 => TokenColor::GREEN,
+            _ => TokenColor::RED,
         };
         Game {
             uid: Uuid::new_v4().to_string(),
@@ -231,76 +250,101 @@ impl Game {
         }
     }
 
-    // pub fn processing(&mut self) {
-    //     while self.board.is_gameover().is_none() {
-    //         self.cmd(&mut self.players[self.round_flag as usize]);
-    //         self.round_flag = !self.round_flag;
-    //     }
-    //     println!("end");
-    // }
-    //
-    // pub fn cmd(&mut self, player: &mut Player) {
-    //     println!("debug msg");
-    //     self.board.display();
-    //     let mut need_to_conti = true;
-    //     while need_to_conti {
-    //         let mut in_str = String::new();
-    //         io::stdin().read_line(&mut in_str).unwrap();
-    //         let in_str = in_str.trim();
-    //         if in_str == "a" {
-    //             self.board.display();
-    //         } else if in_str == "b" {
-    //             let mut size = String::new();
-    //             io::stdin().read_line(&mut size).unwrap();
-    //             let size = size.trim();
-    //             let mut target = String::new();
-    //             io::stdin().read_line(&mut target).unwrap();
-    //             let target: Vec<usize> = target
-    //                 .trim()
-    //                 .split(",")
-    //                 .map(|x| x.parse::<usize>().unwrap())
-    //                 .collect();
-    //             let size = match size {
-    //                 "b" => Size::BIG,
-    //                 "m" => Size::MID,
-    //                 "s" => Size::SMALL,
-    //                 _ => continue,
-    //             };
-    //             if player.place_from_inventory(size, &mut self.board, target[0], target[1]) {
-    //                 break;
-    //             }
-    //         } else if in_str == "c" {
-    //             let mut from = String::new();
-    //             io::stdin().read_line(&mut from).unwrap();
-    //             let from: Vec<usize> = from
-    //                 .trim()
-    //                 .split(",")
-    //                 .map(|x| x.parse::<usize>().unwrap())
-    //                 .collect();
-    //             let mut target = String::new();
-    //             io::stdin().read_line(&mut target).unwrap();
-    //         }
-    //     }
-    // }
+    pub fn processing(&mut self) {
+        while self.board.is_gameover().is_none() {
+            self.cmd();
+            self.round_flag = !self.round_flag;
+        }
+        println!("end");
+    }
+
+    pub fn cmd(&mut self) {
+        let mut need_to_conti = true;
+        while need_to_conti {
+            println!(
+                "Player{:?} a: display, b: take from invetory, c:board 2 board: ",
+                self.round_flag
+            );
+            let mut in_str = String::new();
+            io::stdin().read_line(&mut in_str).unwrap();
+            let in_str = in_str.trim();
+            if in_str == "a" {
+                self.board.display();
+            } else if in_str == "b" {
+                let mut size = String::new();
+                println!("size? :");
+                io::stdin().read_line(&mut size).unwrap();
+                let size = size.trim();
+                let mut target = String::new();
+                println!("Target? :");
+                io::stdin().read_line(&mut target).unwrap();
+                let target: Vec<usize> = target
+                    .trim()
+                    .split(",")
+                    .map(|x| x.parse::<usize>().unwrap())
+                    .collect();
+                let size = match size {
+                    "b" => Size::BIG,
+                    "m" => Size::MID,
+                    "s" => Size::SMALL,
+                    _ => continue,
+                };
+                if self.players[self.round_flag as usize].place_from_inventory(
+                    size,
+                    &mut self.board,
+                    target[0],
+                    target[1],
+                ) {
+                    break;
+                }
+            } else if in_str == "c" {
+                let mut from_location = String::new();
+                println!("from? :");
+                io::stdin().read_line(&mut from_location).unwrap();
+                let from: Vec<usize> = from_location
+                    .trim()
+                    .split(",")
+                    .map(|x| x.parse::<usize>().unwrap())
+                    .collect();
+                let mut target = String::new();
+                println!("Target? :");
+                io::stdin().read_line(&mut target).unwrap();
+                let target: Vec<usize> = target
+                    .trim()
+                    .split(",")
+                    .map(|x| x.parse::<usize>().unwrap())
+                    .collect();
+                if self.players[self.round_flag as usize].place_from_board(
+                    &mut self.board,
+                    from[0],
+                    from[1],
+                    target[0],
+                    target[1],
+                ) {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 #[fixture]
 fn end_board() -> Board {
     Board::new([
         [
-            Block::new(vec![Token::new(Color::RED, Size::BIG)]),
-            Block::new(vec![Token::new(Color::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(Color::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(TokenColor::RED, Size::BIG)]),
+            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
         ],
         [
-            Block::new(vec![Token::new(Color::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(Color::RED, Size::BIG)]),
-            Block::new(vec![Token::new(Color::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(TokenColor::RED, Size::BIG)]),
+            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
         ],
         [
-            Block::new(vec![Token::new(Color::GREEN, Size::SMALL)]),
-            Block::new(vec![Token::new(Color::GREEN, Size::SMALL)]),
-            Block::new(vec![Token::new(Color::RED, Size::SMALL)]),
+            Block::new(vec![Token::new(TokenColor::GREEN, Size::SMALL)]),
+            Block::new(vec![Token::new(TokenColor::GREEN, Size::SMALL)]),
+            Block::new(vec![Token::new(TokenColor::RED, Size::SMALL)]),
         ],
     ])
 }
@@ -308,27 +352,15 @@ fn end_board() -> Board {
 #[fixture]
 fn empty_board() -> Board {
     Board::new([
-        [
-            Block::new(vec![]),
-            Block::new(vec![]),
-            Block::new(vec![]),
-        ],
-        [
-            Block::new(vec![]),
-            Block::new(vec![]),
-            Block::new(vec![]),
-        ],
-        [
-            Block::new(vec![]),
-            Block::new(vec![]),
-            Block::new(vec![]),
-        ],
+        [Block::new(vec![]), Block::new(vec![]), Block::new(vec![])],
+        [Block::new(vec![]), Block::new(vec![]), Block::new(vec![])],
+        [Block::new(vec![]), Block::new(vec![]), Block::new(vec![])],
     ])
 }
 
 #[fixture]
 fn empty_player() -> Player {
-    let mut p = Player::new(Color::RED);
+    let mut p = Player::new(TokenColor::RED);
     p.inventory = [0, 0, 0];
     p
 }
@@ -338,10 +370,9 @@ mod test_board {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-
     #[rstest]
     fn test_end_game(end_board: Board) {
-        assert!(end_board.is_gameover() == Some(Color::RED));
+        assert!(end_board.is_gameover() == Some(TokenColor::RED));
     }
 
     #[rstest]
@@ -361,9 +392,12 @@ mod test_player {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-
     #[rstest]
-    fn test_place_from_inventory(mut empty_player: Player, mut empty_board: Board, mut end_board: Board) {
+    fn test_place_from_inventory(
+        mut empty_player: Player,
+        mut empty_board: Board,
+        mut end_board: Board,
+    ) {
         let endb = &mut end_board;
         let emb = &mut empty_board;
         assert!(empty_player.place_from_inventory(Size::BIG, emb, 0, 0) == false);
@@ -374,11 +408,18 @@ mod test_player {
     }
 
     #[rstest]
-    fn test_place_from_board(mut empty_player: Player, mut empty_board: Board, mut end_board: Board) {
+    fn test_place_from_board(
+        mut empty_player: Player,
+        mut empty_board: Board,
+        mut end_board: Board,
+    ) {
         let endb = &mut end_board;
         let emb = &mut empty_board;
-        assert!(empty_player.place_from_board(emb, 0, 0, 1, 1) == false, "should be false from empty to empty");
-        emb.plate[0][0].push_token(Token::new(Color::RED, Size::BIG));
+        assert!(
+            empty_player.place_from_board(emb, 0, 0, 1, 1) == false,
+            "should be false from empty to empty"
+        );
+        emb.plate[0][0].push_token(Token::new(TokenColor::RED, Size::BIG));
         assert!(empty_player.place_from_board(emb, 0, 0, 1, 1) == true);
         assert!(emb.plate[0][0].tokens.is_empty());
         assert!(emb.plate[1][1].tokens.is_empty() == false);

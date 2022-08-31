@@ -21,7 +21,7 @@ function test (isNumber) {
 在function裡的邏輯被try / catch包住了，這是為了當發生可預期的錯誤時，並不會讓整個程式中斷，而且回傳自定義的格式，讓使用者可以清楚知道錯誤的訊息是什麼。
 這邊的重點在於我們定義了當變數isNumber是false的時候程式不應該被**terminate**這件事。
 
-然而在Rust中是沒有try / catch存在的，我們會把**isNumber**是**false**時的狀況定義成**可恢復的錯誤**(recoverable errors)。當發生可恢復的錯誤時，顧名思義並不會將程式**terminate**以外並讓我們可以決定錯誤發生時後續的處理。
+然而在Rust中是沒有try / catch存在的，我們會把**isNumber**是**false**時的狀況定義成**可恢復的錯誤**(recoverable errors)。當發生可恢復的錯誤時，顧名思義並不會將程式**terminate**以外，並讓我們可以決定錯誤發生時後續的處理。
 
 在try / catch下，所有的error exception都是屬於不可回復的錯誤(un-recoverable)，意思就是會立即中斷程式防止城市繼續執行下去。
 
