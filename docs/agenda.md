@@ -11,7 +11,7 @@ Error handling(ky)
 # [Day 5](./GC.md)
  Lifetime(ky)
 —-------
-# Day 6
+# [Day 6](./Condition.md)
 Condition/ flow control / matching(Kevin)
 # [Day 7](./DataStructure.md)
 Data structure? box?
