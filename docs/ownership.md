@@ -17,7 +17,7 @@
 為什麼Rust不跟Python, Go一樣使用GC呢？**Slower and unpredictable runtime performance**是很重要的一個原因。
 對於遊戲玩家來說，語言延遲是很討厭的一件事。[Discord switch rust from go](https://discord.com/blog/why-discord-is-switching-from-go-to-rust)，從文章中可以得知，Discord的伺服器每兩分鐘會有一個spikes，而這個原因是Go的記憶體管理方式所造成的。
 
-Ownership/Borrowing/Lifetime是Rust中非常重要的概念，也是Rust的基礎。
+Ownership/Borrow/Lifetime是Rust中非常重要的概念，也是Rust的基礎。
 因為有些概念所以不需要Garbage collection來回收記憶體，並確保記憶體的安全性。
 
 ### Ownership 的規則
