@@ -18,6 +18,9 @@ class希望把行為和status作為一個概念的罐頭封裝起來. 將來再�
 >Many competing definitions describe what OOP is, and by some of these definitions Rust is object-oriented, but by others it is not.
 
 就連官方都不確定Rust是不是OO. 但是我們可以確定的是, Rust以及其他現代程式語言都必須具備封裝概念/ 繼承/ 可擴抽的特性.
+
+
+
 # Struct / traits
 最基礎的
 
