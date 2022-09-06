@@ -1,19 +1,19 @@
-# Day 1
+# [Day 1](./DownloadAndSetup.md)
 IDE / env setup. 讓使用者可最快try  & error
 Library 找尋/介紹場用網站(Crate), Cargo 解釋(kevin)
 # Day 2
 Project structure convention(module)(chester)
 Compiler error code 導讀
-# Day 3
+# [Day 3](./error_handling.md)
 Error handling(ky)
-# Day 4
+# [Day 4](./ownership.md)
 錯誤的寫code -> Ownership(ky)
-# Day 5
+# [Day 5](./GC.md)
  Lifetime(ky)
 —-------
-# Day 6
+# [Day 6](./Condition.md)
 Condition/ flow control / matching(Kevin)
-# Day 7
+# [Day 7](./DataStructure.md)
 Data structure? box?
 # Day 8
 奇蹟連連遊戲規則. Class 建模, rust struct+impl+traits(chester)
