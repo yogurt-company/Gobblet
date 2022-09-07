@@ -11,7 +11,7 @@ class希望把行為和status作為一個概念的罐頭封裝起來. 將來再�
 透過合理的**抽象化** 和 **繼承** 可以讓我們的程式碼更加的可讀, 可維護, 可擴充.
 
 -----
-我知道本篇的讀者絕對不是希望來這裡複習class的概念. 但是對於來自於js 和 python的旅人, 如果談到OO卻跟他們說
+我知道本篇的讀者絕對不是希望來這裡複習class的概念. 但是對於來自於js 和 python的旅人(或其他弱型態的coder), 如果談到OO卻跟他們說
 > 不 本店沒有提供任何class 和繼承.
 
 [官方cook book](https://doc.rust-lang.org/book/ch17-00-oop.html)也可以找到
@@ -84,10 +84,11 @@ pub struct Token {
 rust 封裝行為是獨立開來的. 會有一個`impl` 關鍵字是很多語言沒有的. 
 
 ```python
-# class Token:
-#     def __init__(self, color: Color, size: Size):
-#         self.color = color
-#         self.size = size
+class Token:
+    def __init__(self, color: Color, size: Size):
+        self.color = color
+        self.size = size
+###########vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv#############
     def __str__(self):
         return f'color: {self.color.name}, size: {self.size.name}'
 ```
@@ -113,8 +114,121 @@ impl Token {
 }
 ```
 
-# Generic / Trait
+# Trait
 OO 其中一個重要意圖是增加程式復用性.
+python, javascript的解題思路是透過多abstract一個層級作為parent class去規範共用的行為
+```python
+class Animal:
+    def __init__(self, name: str):
+        self.name = name
+    def __str__(self):
+        return f'{self.name}
 
-# mod
+class Dog(Animal):
+    def bark(self):
+        print('bark')
+class Cat(Animal):
+    def meow(self):
+        print('meow')
+```
+`trait`作用也是達成同樣的目的. 因為**Cat** & **Dog** 都會有同樣的命名和print行為.抽出一層就可以達到程式碼復用性
+
+在rust則換另外一個思考方向. 把需要child class變成一種input, 抽象成一個`trait` 並且讓**Cat** & **Dog**去實作他. 
+
+```rust
+trait Animal {
+    // Associated function signature; `Self` refers to the implementor type.
+    fn new(name: &'static str) -> Self;
+    // Method signatures; these will return a string.
+    fn name(&self) -> &'static str;
+    // Traits can provide default method definitions.
+    fn print(&self) {
+        println!("{}",self.name());
+    }
+}
+```
+
+
+```rust
+struct Dog { name: &'static str }
+
+impl Animal for Dog {
+    // `Self` is the implementor type: `Sheep`.
+    fn new(name: &'static str) -> Dog {
+        Dog { name: name }
+    }
+    fn bark(&self) {
+        println!("bark");
+    }
+}
+```
+
+
+
+----
+我們在實作gobblet其實沒有用到任何trait的語法. 這個語法對於擴展性來說是很重要的.
+
+# Generic
+Generic 基本上算是靜態語言獨有的特性. 但今天我們一起來思考一下為啥要有這個東東, 動態語言又是怎麼去解決這個問題. Generic最核心意涵就是某一個特定feature他要處理不同類別但是一樣的功能性.
+拿一個最常見的案例至少最基本可以處理 數字和字串的case.
+
+```python
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __add__(self, other):
+        return Point(self.x + other.x, self.y + other.y)
+
+pt = Point(1,'2')
+pt2 = Point(3,4)
+```
+這個很明顯的不能達成我們的邏輯. 但是如果我們把他改成這樣
+```python
+class Point:
+    def __init__(self, x, y):
+        self.x = x if isinstance(x, int) else int(x)
+        self.y = y if isinstance(y, int) else int(y)
+    def __add__(self, other):
+        return Point(self.x + other.x, self.y + other.y)
+```
+在裡頭強制轉換型態成為一個可以 + 可以運作的 int型態基本上就可以處理多型態的問題. 但是這樣的寫法會讓我們的程式碼變得很難維護. 這個時候我們就可以用到Generic的概念了.
+
+```rust
+struct Point<T> {
+    x: T,
+    y: T,
+}
+
+impl Point<T>{
+    fn add(&self, other: Point<T>) -> Point<T> {
+        Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+}
+
+fn main() {
+    // let pt = Point { x: 5, y: 4.0 }; This will fail 
+    let pt = Point { x: 5, y: 4 };
+}
+```
+透過`T`做型態擴充, 但依舊保持型態檢查的特性. 這樣就可以達到我們的目的. 但是這樣的寫法還是有一個問題. 我們的`Point`只能處理`x`和`y`是同樣型態的情況. 但是如果我們想要處理`x`和`y`是不同型態的情況呢? 我們可以這樣寫
+
+```rust
+struct Point<T, U> {
+    x: T,
+    y: U,
+}
+impl Point<T,U> {
+    fn add(&self, other: Point<T, U>) -> Point<T, U> {
+        Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+}
+```
+
 
