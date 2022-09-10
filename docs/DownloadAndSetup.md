@@ -79,9 +79,14 @@ cargo new hello_world_2
 ```
 
 ### Directory Structure
+空的toml檔案可以類推到python poetry幾乎一至的使用體驗. Cargo.toml 
+可以透過 ``cargo update`` 產生 Cargo.lock 來鎖定依賴包的版本
+這點與python poetry的使用體驗也相似
 
-空的Cargo.toml結構為此
-```toml
+
+空的Cargo.toml結構為此:
+
+```
 [package]
 name = "hello_world_2"
 version = "0.1.0"
@@ -113,8 +118,8 @@ edition = "2021"
 rand = "0.8.4"
 ```
 
-再跑 `cargo build` cargo 就會自動的安裝相關依賴<br>
-之後會產生一個 cargo.lock 來做 lock file<br>
+直接跑 `cargo build` cargo 就會自動的安裝相關依賴<br>
+之後會產生一個 cargo.lock. 特別是在不同環境下開發時, 會希望能夠確保每個環境下的依賴都是一致的<br>
 
 ```
 .
@@ -127,5 +132,4 @@ rand = "0.8.4"
 └── src
     └── main.rs
 ```
-
 最後只要執行 `./target/debug/{PACKAGE.NAME}` 的檔案即可測試編譯結果

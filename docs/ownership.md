@@ -16,6 +16,8 @@
 
 為什麼Rust不跟Python, Go一樣使用GC呢？**Slower and unpredictable runtime performance**是很重要的一個原因。
 對於遊戲玩家來說，語言延遲是很討厭的一件事。[Discord switch rust from go](https://discord.com/blog/why-discord-is-switching-from-go-to-rust)，從文章中可以得知，Discord的伺服器每兩分鐘會有一個spikes，而這個原因是Go的記憶體管理方式所造成的。
+> 舉一個案例來說. GC/ rust/ c & c++ 三種處理回收機制就像是三種風格不同的健身房. GC就是有掃地阿姨的健身房, 你去就是拿器材放槓片, 用完就可以閃人, 反正阿姨會幫你把東西清掃乾淨. 但同一時刻阿姨打掃其實也會讓某些器材不能使用. c&c++ 比較像是沒有阿姨, 在進門的公告上寫明希望所有使用者要依照規定把槓片和器材搬回原處. 理論上不需要打掃時間, 也不用暫停使用某些器材. 但就是會有人不歸位, 久而久之就會到處亂放. Rust 比較像是一個異世界的健身房, 一但你沒有清楚交代你等一下槓片用多少該怎麼歸還, 你連推都推不起來,器材自行鎖住, 雖然沒有阿姨, 但基本上健身房可以保證持續運作.
+
 
 Ownership(所有權)/Borrow(借用/引用)/Lifetime(生命週期)是Rust中非常重要的概念，也是Rust的基礎。
 因為有些概念所以不需要Garbage collection來回收記憶體，並確保記憶體的安全性。
