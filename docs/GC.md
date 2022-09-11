@@ -13,7 +13,7 @@ dummy_fn()
 print(will_die) # 這個絕對會GG
 ```
 Python 對於內存的管理走的就是自動garbege collection. 在官方文件中有註解.
-![不給玩](gc1.png)
+![不給玩](images/GC/gc1.png)
 
 基本不推薦直接去操作以免造成stackoverflow.和各式各樣的memory處理問題.
 
