@@ -1,6 +1,6 @@
 # Project Struct - Trace code 入手點
 Rust有一個特點就是 你最簡單的方式是從 project root的`main.rs` main function 作為入口位置開始運行程式碼. 這是基於 cargo project的convention.
-以下是一是 cargo 提出的 project struct：
+以下是一是 cargo 提出的 project struct： 幾乎可套用到大部分的專案.
 ```
 .
 ├── Cargo.lock
@@ -32,15 +32,23 @@ Rust有一個特點就是 你最簡單的方式是從 project root的`main.rs` m
 
 ```
 ## bin
-如果我需要有多個進入點？ 
+如果我需要有多個進入點, 但用想保持在同一個repository
 
 這時候可以將不同的 .rs file 置放於 src/bin/之下 `cargo run --bin named-executable`  來執行
 
 ## examples
-這個地方幾
+這個地方會是開啟一個open source的project中很好的進入點. 以most downloaded 的 lib: `rand` 為[例](https://github.com/rust-random/rand).
+由於性質不同, src底下並不會找到 main.rs.
+
+但對於survey一個新的lib, 最想知道的是, 這包code是不是符合library敘述. examples 底下的[monte carlo](https://github.com/rust-random/rand/blob/master/examples/monte-carlo.rs)就是一個對於亂數library非常重要的應用.
+
+基本上看到蒙地卡羅模擬，就可以知道這個library是用來產生亂數的。而且這個例子也很簡單，只有一個函數，不需要引入其他的函數庫，就可以直接執行。
+
+
 
 ## test
-這個地方是擺放 End-to-End test的地方. 如果是unit test會直接放在所屬src的.rs檔案中. 後面的文章會詳細的說明該怎麼寫測試.
+和其他程式語言不同, unit test在官方文件建議下會推薦直接放在所屬src的.rs檔案中.
+這個地方是擺放 End-to-End test的地方.  後面的文章會詳細的說明該怎麼寫測試.
 
 
 # Compiler - Rust路上最大的敵人與朋友
@@ -70,7 +78,10 @@ fn main() {
 2. ^^^^^^ 的提示內容. 提供更詳細直接的try的方法.
 
 
-# 奇雞連連(Gobblet)
+# 一個足夠小的練習
+
+在開啟一個新的程式語言的路徑上, 筆者覺得最有效率的方式是開啟一個足夠大也足夠小的專案
+
 這30天的鐵人賽範例會圍繞打造一個[桌遊](https://boardgamegeek.com/boardgame/2266/gobblet#:~:text=Gobblet%20is%20an%20abstract%20game,start%20nested%20off%20the%20board.)-> 奇雞連連的單人遊戲服務.
 
 為了能夠讓讀者可以一起想像如何建模, 掌握這個規則簡單但是變化性豐富的遊戲是必須的. 以下會用程式需要的方式介紹這個遊戲
