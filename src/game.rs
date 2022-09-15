@@ -6,7 +6,7 @@ use std::io;
 use std::ops::Not;
 use uuid::Uuid;
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
+#[derive(Clone, Copy, Debug, Eq, IntEnum)]
 pub enum TokenColor {
     RED = 0,
     GREEN = 1,
@@ -67,6 +67,7 @@ impl Block {
     pub fn get_outermost_token(&self) -> Option<Token> {
         self.tokens.last().cloned()
     }
+    // TODO from copy to borrow, but how?
     pub fn pop_outermost_token(&mut self) -> Token {
         self.tokens.remove(self.tokens.len() - 1)
     }
@@ -103,7 +104,7 @@ impl Board {
     pub fn new(blocks: [[Block; 3]; 3]) -> Board {
         Board { plate: blocks }
     }
-
+    // FP寫的
     fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<TokenColor> {
         let result = pattern
             .iter()
@@ -121,6 +122,7 @@ impl Board {
             _ => None,
         }
     }
+    // TODO NxN genernalize
     pub fn is_gameover(&self) -> Option<TokenColor> {
         let patterns: [[[usize; 2]; 3]; 8] = [
             [[2, 0], [1, 1], [0, 2]],
@@ -153,6 +155,7 @@ impl Board {
         }
         false
     }
+    // TODO Add Json Status format generator
     pub fn display(&self) {
         for row in self.plate.iter() {
             for block in row.iter() {
@@ -227,6 +230,51 @@ impl Player {
     }
 }
 
+// Game processing  => Action + stauts = > New Status
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
+pub enum ActionType {
+    FromInventory = 0,
+    FromBoard = 1,
+}
+
+
+#[derive(Clone, Copy, Debug)]
+pub struct Action{
+    pub action_type: ActionType,
+    pub player: TokenColor,
+    pub from_inventory: Option<Token>,
+    pub from_xy: Option<[usize; 2]>,
+    pub to_xy: Option<[usize; 2]>,
+}
+
+impl Action {
+    pub fn new(action_type: ActionType, player: TokenColor, from_inventory: Option<Token>, from_xy: Option<[usize; 2]>, to_xy: Option<[usize; 2]>) -> Action {
+        match action_type {
+            ActionType::FromInventory => {
+                Action {
+                    action_type,
+                    player,
+                    from_inventory,
+                    from_xy: None,
+                    to_xy,
+                }
+            }
+            ActionType::FromBoard => {
+                Action {
+                    action_type,
+                    player,
+                    from_inventory: None,
+                    from_xy,
+                    to_xy,
+                }
+            }
+        }
+    }
+}
+
+
+
 pub struct Game {
     uid: String,
     board: Board,
@@ -257,7 +305,7 @@ impl Game {
         }
         println!("end");
     }
-
+    // keyboard input to trigger player action
     pub fn cmd(&mut self) {
         let mut need_to_conti = true;
         while need_to_conti {
@@ -325,6 +373,36 @@ impl Game {
                 }
             }
         }
+    }
+
+
+    pub fn parse_action(&mut self, action: Action) -> bool {
+        match action.action_type {
+            ActionType::FromInventory => {
+                if let Some(token) = action.from_inventory {
+                    if self.players[action.player as usize].place_from_inventory(
+                        token.size,
+                        &mut self.board,
+                        action.to_xy.unwrap()[0],
+                        action.to_xy.unwrap()[1],
+                    ) {
+                        return true;
+                    }
+                }
+            }
+            ActionType::FromBoard => {
+                if self.players[action.player as usize].place_from_board(
+                    &mut self.board,
+                    action.from_xy.unwrap()[0],
+                    action.from_xy.unwrap()[1],
+                    action.to_xy.unwrap()[0],
+                    action.to_xy.unwrap()[1],
+                ) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
