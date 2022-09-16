@@ -5,6 +5,10 @@ use rstest::*;
 use std::io;
 use std::ops::Not;
 use uuid::Uuid;
+
+
+
+
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, IntEnum)]
 pub enum TokenColor {
@@ -300,77 +304,62 @@ impl Game {
 
     pub fn processing(&mut self) {
         while self.board.is_gameover().is_none() {
-            self.cmd();
-            self.round_flag = !self.round_flag;
+            let action = self.io_input();
+            if self.parse_action(action) {
+                self.round_flag = !self.round_flag;
+            }
         }
         println!("end");
     }
     // keyboard input to trigger player action
-    pub fn cmd(&mut self) {
-        let mut need_to_conti = true;
-        while need_to_conti {
-            println!(
-                "Player{:?} a: display, b: take from invetory, c:board 2 board: ",
-                self.round_flag
-            );
-            let mut in_str = String::new();
-            io::stdin().read_line(&mut in_str).unwrap();
-            let in_str = in_str.trim();
-            if in_str == "a" {
-                self.board.display();
-            } else if in_str == "b" {
-                let mut size = String::new();
-                println!("size? :");
-                io::stdin().read_line(&mut size).unwrap();
-                let size = size.trim();
-                let mut target = String::new();
-                println!("Target? :");
-                io::stdin().read_line(&mut target).unwrap();
-                let target: Vec<usize> = target
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                let size = match size {
-                    "b" => Size::BIG,
-                    "m" => Size::MID,
-                    "s" => Size::SMALL,
-                    _ => continue,
-                };
-                if self.players[self.round_flag as usize].place_from_inventory(
-                    size,
-                    &mut self.board,
-                    target[0],
-                    target[1],
-                ) {
-                    break;
-                }
-            } else if in_str == "c" {
-                let mut from_location = String::new();
-                println!("from? :");
-                io::stdin().read_line(&mut from_location).unwrap();
-                let from: Vec<usize> = from_location
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                let mut target = String::new();
-                println!("Target? :");
-                io::stdin().read_line(&mut target).unwrap();
-                let target: Vec<usize> = target
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                if self.players[self.round_flag as usize].place_from_board(
-                    &mut self.board,
-                    from[0],
-                    from[1],
-                    target[0],
-                    target[1],
-                ) {
-                    break;
-                }
+    pub fn io_input(&mut self) -> Action {
+        println!(
+            "Player{:?}  a: take from invetory, b:board 2 board: ",
+            self.round_flag
+        );
+        let mut in_str = String::new();
+        io::stdin().read_line(&mut in_str).unwrap();
+        let option = in_str.trim();
+        match option {
+            "a" => {
+                println!("size: ");
+                let mut in_str = String::new();
+                io::stdin().read_line(&mut in_str).unwrap();
+                let size = in_str.trim().parse::<u8>().unwrap();
+                println!("x: ");
+                let mut in_str = String::new();
+                io::stdin().read_line(&mut in_str).unwrap();
+                let x = in_str.trim().parse::<usize>().unwrap();
+                println!("y: ");
+                let mut in_str = String::new();
+                io::stdin().read_line(&mut in_str).unwrap();
+                let y = in_str.trim().parse::<usize>().unwrap();
+                let action = Action::new(ActionType::FromInventory, self.round_flag, Some(Token::new(self.round_flag, Size::from(size))), None, Some([x, y]));
+                action
+            }
+            "b" => {
+                println!("x: ");
+                let mut in_str = String::new();
+                io::stdin().read_line(&mut in_str).unwrap();
+                let x = in_str.trim().parse::<usize>().unwrap();
+                println!("y: ");
+                let mut in_str = String::new();
+                io::stdin().read_line(&mut in_str).unwrap();
+                let y = in_str.trim().parse::<usize>().unwrap();
+                println!("x2: ");
+                let mut in_str = String::new();
+                io::stdin().read_line(&mut in_str).unwrap();
+                let x2 = in_str.trim().parse::<usize>().unwrap();
+                println!("y2: ");
+                let mut in_str = String::new();
+                io::stdin().read_line(&mut in_str).unwrap();
+                let y2 = in_str.trim().parse::<usize>().unwrap();
+                let action = Action::new(ActionType::FromBoard, self.round_flag, None, Some([x, y]), Some([x2, y2]));
+                action
+            }
+            _ => {
+                println!("invalid input");
+                self.io_input()
             }
         }
     }
