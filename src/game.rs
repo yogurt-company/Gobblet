@@ -5,8 +5,8 @@ use rstest::*;
 use std::io;
 use std::ops::Not;
 use uuid::Uuid;
-
-
+use std::str::FromStr;
+use std::string::ParseError;
 
 
 #[repr(u8)]
@@ -31,6 +31,17 @@ pub enum Size {
     BIG = 2,
     MID = 1,
     SMALL = 0,
+}
+impl FromStr for Size {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s{
+            "s"|"S"|"0" => Ok(Size::SMALL),
+            "m"|"M"|"1" => Ok(Size::MID),
+            "l"|"L"|"2" => Ok(Size::BIG),
+            _ => Err(ParseError::default()),
+            }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -304,15 +315,21 @@ impl Game {
 
     pub fn processing(&mut self) {
         while self.board.is_gameover().is_none() {
+            self.board.display();
             let action = self.io_input();
-            if self.parse_action(action) {
-                self.round_flag = !self.round_flag;
+            match action {
+                Some(action) => {
+                    self.processing_action(action);
+                }
+                None => {
+                    println!("Invalid Action, Need to retry");
+                }
             }
         }
         println!("end");
     }
     // keyboard input to trigger player action
-    pub fn io_input(&mut self) -> Action {
+    pub fn io_input(&mut self) -> Option<Action>{
         println!(
             "Player{:?}  a: take from invetory, b:board 2 board: ",
             self.round_flag
@@ -322,51 +339,87 @@ impl Game {
         let option = in_str.trim();
         match option {
             "a" => {
-                println!("size: ,l/m/s");
+                println!("from inventory");
+                println!("size: 0:small, 1:medium, 2:large");
                 let mut in_str = String::new();
                 io::stdin().read_line(&mut in_str).unwrap();
-                let size = in_str.trim().parse::<u8>().unwrap();
-                match size {
-                    "l"=>
-                }
-                println!("x: ");
+                let size = in_str.trim().parse::<Size>().unwrap();
+                println!("to x y");
                 let mut in_str = String::new();
                 io::stdin().read_line(&mut in_str).unwrap();
-                let x = in_str.trim().parse::<usize>().unwrap();
-                println!("y: ");
-                let mut in_str = String::new();
-                io::stdin().read_line(&mut in_str).unwrap();
-                let y = in_str.trim().parse::<usize>().unwrap();
-                let action = Action::new(ActionType::FromInventory, self.round_flag, Some(Token::new(self.round_flag, Size::from(size))), None, Some([x, y]));
-                action
+                let xy: Vec<usize> = in_str
+                    .trim()
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap())
+                    .collect();
+                let x = xy[0];
+                let y = xy[1];
+                Some(Action::new(ActionType::FromInventory, self.round_flag, self.players[self.round_flag as usize].get_token(Size::from(size)), None, Some([x, y])))
             }
             "b" => {
-                println!("x: ");
+                println!("from board");
+                println!("from x y");
                 let mut in_str = String::new();
                 io::stdin().read_line(&mut in_str).unwrap();
-                let x = in_str.trim().parse::<usize>().unwrap();
-                println!("y: ");
+                let xy: Vec<usize> = in_str
+                    .trim()
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap())
+                    .collect();
+                let x = xy[0];
+                let y = xy[1];
+                println!("to x y");
                 let mut in_str = String::new();
                 io::stdin().read_line(&mut in_str).unwrap();
-                let y = in_str.trim().parse::<usize>().unwrap();
-                println!("x2: ");
-                let mut in_str = String::new();
-                io::stdin().read_line(&mut in_str).unwrap();
-                let x2 = in_str.trim().parse::<usize>().unwrap();
-                println!("y2: ");
-                let mut in_str = String::new();
-                io::stdin().read_line(&mut in_str).unwrap();
-                let y2 = in_str.trim().parse::<usize>().unwrap();
-                let action = Action::new(ActionType::FromBoard, self.round_flag, None, Some([x, y]), Some([x2, y2]));
-                action
+                let xy: Vec<usize> = in_str
+                    .trim()
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap())
+                    .collect();
+                let x2 = xy[0];
+                let y2 = xy[1];
+                Some(Action::new(ActionType::FromBoard, self.round_flag, None, Some([x, y]), Some([x2, y2])))
             }
             _ => {
                 println!("invalid input");
-                self.io_input()
+                None
             }
         }
     }
-
+    fn processing_action(&mut self, action: Action) {
+        match action.action_type {
+            ActionType::FromInventory => {
+                if let Some(token) = action.from_inventory {
+                    if self.players[action.player as usize].place_from_inventory(
+                        token.size,
+                        &mut self.board,
+                        action.to_xy.unwrap()[0],
+                        action.to_xy.unwrap()[1],
+                    ) {
+                        self.round_flag = !self.round_flag;
+                    }
+                }
+            }
+            ActionType::FromBoard => {
+                if self.players[action.player as usize].place_from_board(
+                    &mut self.board,
+                    action.from_xy.unwrap()[0],
+                    action.from_xy.unwrap()[1],
+                    action.to_xy.unwrap()[0],
+                    action.to_xy.unwrap()[1],
+                ) {
+                    self.round_flag = !self.round_flag;
+                }
+            }
+        }
+    }
+    //TODO error handle here
+    fn get_xy(xy: &str) -> [usize; 2] {
+        let xy = xy.split(",").collect::<Vec<&str>>();
+        let x = xy[0].parse::<usize>().unwrap();
+        let y = xy[1].parse::<usize>().unwrap();
+        [x, y]
+    }
 
     pub fn parse_action(&mut self, action: Action) -> bool {
         match action.action_type {
