@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, Eq, IntEnum)]
+#[derive(Clone, Copy, Debug,PartialEq, Eq, IntEnum)]
 pub enum TokenColor {
     RED = 0,
     GREEN = 1,
@@ -322,10 +322,13 @@ impl Game {
         let option = in_str.trim();
         match option {
             "a" => {
-                println!("size: ");
+                println!("size: ,l/m/s");
                 let mut in_str = String::new();
                 io::stdin().read_line(&mut in_str).unwrap();
                 let size = in_str.trim().parse::<u8>().unwrap();
+                match size {
+                    "l"=>
+                }
                 println!("x: ");
                 let mut in_str = String::new();
                 io::stdin().read_line(&mut in_str).unwrap();
