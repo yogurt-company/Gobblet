@@ -1,12 +1,14 @@
+use std::io;
+use std::ops::Not;
+
 use colored::*;
 use int_enum::IntEnum;
 use rand::Rng;
 use rstest::*;
-use std::io;
-use std::ops::Not;
 use uuid::Uuid;
+
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
+#[derive(Clone, Copy, Debug,PartialEq, Eq, IntEnum)]
 pub enum TokenColor {
     RED = 0,
     GREEN = 1,
@@ -67,6 +69,7 @@ impl Block {
     pub fn get_outermost_token(&self) -> Option<Token> {
         self.tokens.last().cloned()
     }
+    // TODO from copy to borrow, but how?
     pub fn pop_outermost_token(&mut self) -> Token {
         self.tokens.remove(self.tokens.len() - 1)
     }
@@ -103,7 +106,7 @@ impl Board {
     pub fn new(blocks: [[Block; 3]; 3]) -> Board {
         Board { plate: blocks }
     }
-
+    // FP寫的
     fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<TokenColor> {
         let result = pattern
             .iter()
@@ -121,6 +124,7 @@ impl Board {
             _ => None,
         }
     }
+    // TODO NxN genernalize
     pub fn is_gameover(&self) -> Option<TokenColor> {
         let patterns: [[[usize; 2]; 3]; 8] = [
             [[2, 0], [1, 1], [0, 2]],
@@ -153,6 +157,7 @@ impl Board {
         }
         false
     }
+    // TODO Add Json Status format generator
     pub fn display(&self) {
         for row in self.plate.iter() {
             for block in row.iter() {
@@ -227,6 +232,51 @@ impl Player {
     }
 }
 
+// Game processing  => Action + stauts = > New Status
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
+pub enum ActionType {
+    FromInventory = 0,
+    FromBoard = 1,
+}
+
+
+#[derive(Clone, Copy, Debug)]
+pub struct Action{
+    pub action_type: ActionType,
+    pub player: TokenColor,
+    pub from_inventory: Option<Token>,
+    pub from_xy: Option<[usize; 2]>,
+    pub to_xy: Option<[usize; 2]>,
+}
+
+impl Action {
+    pub fn new(action_type: ActionType, player: TokenColor, from_inventory: Option<Token>, from_xy: Option<[usize; 2]>, to_xy: Option<[usize; 2]>) -> Action {
+        match action_type {
+            ActionType::FromInventory => {
+                Action {
+                    action_type,
+                    player,
+                    from_inventory,
+                    from_xy: None,
+                    to_xy,
+                }
+            }
+            ActionType::FromBoard => {
+                Action {
+                    action_type,
+                    player,
+                    from_inventory: None,
+                    from_xy,
+                    to_xy,
+                }
+            }
+        }
+    }
+}
+
+
+
 pub struct Game {
     uid: String,
     board: Board,
@@ -252,79 +302,151 @@ impl Game {
 
     pub fn processing(&mut self) {
         while self.board.is_gameover().is_none() {
-            self.cmd();
-            self.round_flag = !self.round_flag;
-        }
-        println!("end");
-    }
-
-    pub fn cmd(&mut self) {
-        let mut need_to_conti = true;
-        while need_to_conti {
-            println!(
-                "Player{:?} a: display, b: take from invetory, c:board 2 board: ",
-                self.round_flag
-            );
-            let mut in_str = String::new();
-            io::stdin().read_line(&mut in_str).unwrap();
-            let in_str = in_str.trim();
-            if in_str == "a" {
-                self.board.display();
-            } else if in_str == "b" {
-                let mut size = String::new();
-                println!("size? :");
-                io::stdin().read_line(&mut size).unwrap();
-                let size = size.trim();
-                let mut target = String::new();
-                println!("Target? :");
-                io::stdin().read_line(&mut target).unwrap();
-                let target: Vec<usize> = target
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                let size = match size {
-                    "b" => Size::BIG,
-                    "m" => Size::MID,
-                    "s" => Size::SMALL,
-                    _ => continue,
-                };
-                if self.players[self.round_flag as usize].place_from_inventory(
-                    size,
-                    &mut self.board,
-                    target[0],
-                    target[1],
-                ) {
-                    break;
+            self.board.display();
+            let action = self.io_input();
+            match action {
+                Some(action) => {
+                    self.processing_action(action);
                 }
-            } else if in_str == "c" {
-                let mut from_location = String::new();
-                println!("from? :");
-                io::stdin().read_line(&mut from_location).unwrap();
-                let from: Vec<usize> = from_location
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                let mut target = String::new();
-                println!("Target? :");
-                io::stdin().read_line(&mut target).unwrap();
-                let target: Vec<usize> = target
-                    .trim()
-                    .split(",")
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect();
-                if self.players[self.round_flag as usize].place_from_board(
-                    &mut self.board,
-                    from[0],
-                    from[1],
-                    target[0],
-                    target[1],
-                ) {
-                    break;
+                None => {
+                    println!("Invalid Action, Need to retry");
                 }
             }
         }
+        println!("end");
+    }
+    // keyboard input to trigger player action
+    pub fn io_input(&mut self) -> Option<Action>{
+        let option = self.get_option();
+        match option {
+            "a" => {
+                println!("from inventory");
+                let size = Self::get_size();
+                let xy= Self::get_xy();
+                Some(Action::new(ActionType::FromInventory, self.round_flag, self.players[self.round_flag as usize].get_token(Size::from(size)), None, Some([xy[0], xy[1]])))
+            }
+            "b" => {
+                println!("from board");
+                println!("from x y");
+                let xy = Self::get_xy();
+                let x = xy[0];
+                let y = xy[1];
+                println!("to x y");
+                let xy = Self::get_xy();
+                let x2 = xy[0];
+                let y2 = xy[1];
+                Some(Action::new(ActionType::FromBoard, self.round_flag, None, Some([x, y]), Some([x2, y2])))
+            }
+            _ => {
+                println!("invalid input");
+                None
+            }
+        }
+    }
+    fn processing_action(&mut self, action: Action) {
+        match action.action_type {
+            ActionType::FromInventory => {
+                if let Some(token) = action.from_inventory {
+                    if self.players[action.player as usize].place_from_inventory(
+                        token.size,
+                        &mut self.board,
+                        action.to_xy.unwrap()[0],
+                        action.to_xy.unwrap()[1],
+                    ) {
+                        self.round_flag = !self.round_flag;
+                    } else {
+                        println!("invalid action");
+                    }
+                }
+            }
+            ActionType::FromBoard => {
+                if self.players[action.player as usize].place_from_board(
+                    &mut self.board,
+                    action.from_xy.unwrap()[0],
+                    action.from_xy.unwrap()[1],
+                    action.to_xy.unwrap()[0],
+                    action.to_xy.unwrap()[1],
+                ) {
+                    self.round_flag = !self.round_flag;
+                }
+                else {
+                    println!("invalid action");
+                }
+            }
+        }
+    }
+    fn get_option(&self) -> &str {
+        println!(
+            "Player{:?}  a: take from invetory, b:board 2 board: ",
+            self.round_flag
+        );
+        let mut in_str = String::new();
+        io::stdin().read_line(&mut in_str).unwrap();
+        let option = in_str.trim();
+        match option {
+            "a" => "a",
+            "b" => "b",
+            _ => self.get_option()
+        }
+    }
+
+    fn get_size() -> Size {
+        println!("size: 0:small, 1:medium, 2:large");
+        let mut in_str = String::new();
+        io::stdin().read_line(&mut in_str).unwrap();
+        let size = in_str.trim();
+        match size {
+            "s" | "S" | "0" => Size::SMALL,
+            "m" | "M" | "1" => Size::MID,
+            "l" | "L" | "2" => Size::BIG,
+            _ => {
+                println!("invalid size");
+                Self::get_size()
+            }
+        }
+    }
+
+    fn get_xy() -> [usize; 2] {
+        println!("Enter the coordinate of the board");
+        let mut in_str = String::new();
+        io::stdin().read_line(&mut in_str).unwrap();
+        let xy: Vec<usize> = in_str
+            .trim()
+            .split(&[' ',','][..])
+            .map(|s| s.parse().unwrap())
+            .collect();
+        let x = xy[0];
+        let y = xy[1];
+        [x, y]
+    }
+
+    pub fn parse_action(&mut self, action: Action) -> bool {
+        match action.action_type {
+            ActionType::FromInventory => {
+                if let Some(token) = action.from_inventory {
+                    if self.players[action.player as usize].place_from_inventory(
+                        token.size,
+                        &mut self.board,
+                        action.to_xy.unwrap()[0],
+                        action.to_xy.unwrap()[1],
+                    ) {
+                        return true;
+                    }
+                }
+            }
+            ActionType::FromBoard => {
+                if self.players[action.player as usize].place_from_board(
+                    &mut self.board,
+                    action.from_xy.unwrap()[0],
+                    action.from_xy.unwrap()[1],
+                    action.to_xy.unwrap()[0],
+                    action.to_xy.unwrap()[1],
+                ) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
