@@ -1,6 +1,3 @@
-use crate::game::Token;
-use std::io;
-use colored::*;
 mod game;
 
 fn main() {

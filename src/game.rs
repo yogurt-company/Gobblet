@@ -1,13 +1,11 @@
+use std::io;
+use std::ops::Not;
+
 use colored::*;
 use int_enum::IntEnum;
 use rand::Rng;
 use rstest::*;
-use std::io;
-use std::ops::Not;
 use uuid::Uuid;
-use std::str::FromStr;
-use std::string::ParseError;
-
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug,PartialEq, Eq, IntEnum)]
@@ -31,17 +29,6 @@ pub enum Size {
     BIG = 2,
     MID = 1,
     SMALL = 0,
-}
-impl FromStr for Size {
-    type Err = ParseError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s{
-            "s"|"S"|"0" => Ok(Size::SMALL),
-            "m"|"M"|"1" => Ok(Size::MID),
-            "l"|"L"|"2" => Ok(Size::BIG),
-            _ => Err(ParseError::default()),
-            }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -330,52 +317,22 @@ impl Game {
     }
     // keyboard input to trigger player action
     pub fn io_input(&mut self) -> Option<Action>{
-        println!(
-            "Player{:?}  a: take from invetory, b:board 2 board: ",
-            self.round_flag
-        );
-        let mut in_str = String::new();
-        io::stdin().read_line(&mut in_str).unwrap();
-        let option = in_str.trim();
+        let option = self.get_option();
         match option {
             "a" => {
                 println!("from inventory");
-                println!("size: 0:small, 1:medium, 2:large");
-                let mut in_str = String::new();
-                io::stdin().read_line(&mut in_str).unwrap();
-                let size = in_str.trim().parse::<Size>().unwrap();
-                println!("to x y");
-                let mut in_str = String::new();
-                io::stdin().read_line(&mut in_str).unwrap();
-                let xy: Vec<usize> = in_str
-                    .trim()
-                    .split_whitespace()
-                    .map(|s| s.parse().unwrap())
-                    .collect();
-                let x = xy[0];
-                let y = xy[1];
-                Some(Action::new(ActionType::FromInventory, self.round_flag, self.players[self.round_flag as usize].get_token(Size::from(size)), None, Some([x, y])))
+                let size = Self::get_size();
+                let xy= Self::get_xy();
+                Some(Action::new(ActionType::FromInventory, self.round_flag, self.players[self.round_flag as usize].get_token(Size::from(size)), None, Some([xy[0], xy[1]])))
             }
             "b" => {
                 println!("from board");
                 println!("from x y");
-                let mut in_str = String::new();
-                io::stdin().read_line(&mut in_str).unwrap();
-                let xy: Vec<usize> = in_str
-                    .trim()
-                    .split_whitespace()
-                    .map(|s| s.parse().unwrap())
-                    .collect();
+                let xy = Self::get_xy();
                 let x = xy[0];
                 let y = xy[1];
                 println!("to x y");
-                let mut in_str = String::new();
-                io::stdin().read_line(&mut in_str).unwrap();
-                let xy: Vec<usize> = in_str
-                    .trim()
-                    .split_whitespace()
-                    .map(|s| s.parse().unwrap())
-                    .collect();
+                let xy = Self::get_xy();
                 let x2 = xy[0];
                 let y2 = xy[1];
                 Some(Action::new(ActionType::FromBoard, self.round_flag, None, Some([x, y]), Some([x2, y2])))
@@ -397,6 +354,8 @@ impl Game {
                         action.to_xy.unwrap()[1],
                     ) {
                         self.round_flag = !self.round_flag;
+                    } else {
+                        println!("invalid action");
                     }
                 }
             }
@@ -410,14 +369,54 @@ impl Game {
                 ) {
                     self.round_flag = !self.round_flag;
                 }
+                else {
+                    println!("invalid action");
+                }
             }
         }
     }
-    //TODO error handle here
-    fn get_xy(xy: &str) -> [usize; 2] {
-        let xy = xy.split(",").collect::<Vec<&str>>();
-        let x = xy[0].parse::<usize>().unwrap();
-        let y = xy[1].parse::<usize>().unwrap();
+    fn get_option(&self) -> &str {
+        println!(
+            "Player{:?}  a: take from invetory, b:board 2 board: ",
+            self.round_flag
+        );
+        let mut in_str = String::new();
+        io::stdin().read_line(&mut in_str).unwrap();
+        let option = in_str.trim();
+        match option {
+            "a" => "a",
+            "b" => "b",
+            _ => self.get_option()
+        }
+    }
+
+    fn get_size() -> Size {
+        println!("size: 0:small, 1:medium, 2:large");
+        let mut in_str = String::new();
+        io::stdin().read_line(&mut in_str).unwrap();
+        let size = in_str.trim();
+        match size {
+            "s" | "S" | "0" => Size::SMALL,
+            "m" | "M" | "1" => Size::MID,
+            "l" | "L" | "2" => Size::BIG,
+            _ => {
+                println!("invalid size");
+                Self::get_size()
+            }
+        }
+    }
+
+    fn get_xy() -> [usize; 2] {
+        println!("Enter the coordinate of the board");
+        let mut in_str = String::new();
+        io::stdin().read_line(&mut in_str).unwrap();
+        let xy: Vec<usize> = in_str
+            .trim()
+            .split(&[' ',','][..])
+            .map(|s| s.parse().unwrap())
+            .collect();
+        let x = xy[0];
+        let y = xy[1];
         [x, y]
     }
 
