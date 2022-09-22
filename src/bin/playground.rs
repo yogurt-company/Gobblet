@@ -1,18 +1,16 @@
-use int_enum::IntEnum;
-
-
+#[derive(Debug,Copy,Clone)]
 pub enum TokenColor {
     RED = 0,
     GREEN = 1,
 }
-
+#[derive(Debug,Copy,Clone)]
 pub enum Size {
     BIG = 2,
     MID = 1,
     SMALL = 0,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Copy,Clone)]
 pub struct Token {
     color: TokenColor,
     size: Size,
