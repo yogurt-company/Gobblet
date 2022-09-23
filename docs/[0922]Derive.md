@@ -108,7 +108,7 @@ fn main() {
 ```
 
 
-# Copy
+# Copy & Cloned
 之前ownership段落有談論關於 clone 和 copy 的不同. 那我們實際上來看一下我們Why need this trait?
 ![](images/derive/Screen Shot 2022-09-22 at 18.22.41.png)
 
@@ -147,6 +147,22 @@ fn main() {
     println!("t1: {:?}, changed_token: {:?}", t1, changed_token);
 }
 ```
+
+然而並不是所有類型都可以實現Copy trait. Rust規定只有在於所有成員都實現 Copy trait的struct才可以實現Copy trait.
+那就會有一個問題 => `什麼是不能實現Copy trait的struct?`
+
+Copy 其實是作用於stack上面的複製. 舉凡Box, Vec, Heap上面的資料都不能實現Copy trait. 因為他們的資料是存在heap上面的.
+更直觀地說只要是長度不是在compile time就能確定的資料都不能實現Copy trait. 
+
+Clone 則是複製值再創造新物件. 
+
+---
+有一個很有趣的地方就是. 如果使用了Copy就必須也必須implement Clone. Copy 比較像是給compiler一個選擇, 他可以利用memcpy來複製值. 或著依循原來clone.
+不過我們可以有一個大致上的理解, clone是`有機會`成本比較高的.
+
+
+
+
 
 # Hash
 當你需要一些共通功能的時候必需要,舉個實際的例子.在筆者實現遊戲的過程中. 會遇上需要比對兩個棋盤是否一致的問題
