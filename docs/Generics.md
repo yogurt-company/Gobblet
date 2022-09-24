@@ -81,3 +81,35 @@ fn main() {
 而 Rust 的編譯器實際上在處理泛型時, 稱之為 `單態化（monomorphization`
 會將有使用到泛型 function 的型別進行枚舉, 並將結果填入實作中
 所以也不用擔心使用泛型會導致拖慢了執行速度
+
+## 多類型
+
+作為泛型代替型別用的 `T` 在編譯時會被單態化為某個特定型別
+所以理所當然的, `T` 不能在同一次呼叫中被轉化為不同的型別
+例如:
+```rust
+struct Point<T> {
+    x: T,
+    y: T,
+}
+
+fn main() {
+    // 此行將導致編譯錯誤
+    let wont_work = Point { x: 5, y: 4.0 };
+}
+```
+
+所以我們也必須用另外一個泛型型別來表示
+當然, 如果兩個泛型型別同為一個型別是允許的
+```rust 
+struct Point<T, U> {
+    x: T,
+    y: U,
+}
+
+fn main() {
+    let both_integer = Point { x: 5, y: 10 };
+    let both_float = Point { x: 1.0, y: 4.0 };
+    let integer_and_float = Point { x: 5, y: 4.0 };
+}
+```
