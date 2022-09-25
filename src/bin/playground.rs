@@ -1,35 +1,37 @@
-#[repr(u8)]
-#[derive(Clone, Copy, Debug,PartialEq, Eq, IntEnum)]
-pub enum TokenColor {
-    RED = 0,
-    GREEN = 1,
-}
+// #[derive(Debug,Copy)]
+// pub enum TokenColor {
+//     RED = 0,
+//     GREEN = 1,
+// }
+// #[derive(Debug,Copy)]
+// pub enum Size {
+//     BIG = 2,
+//     MID = 1,
+//     SMALL = 0,
+// }
 
-#[repr(usize)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, PartialOrd)]
-pub enum Size {
-    BIG = 2,
-    MID = 1,
-    SMALL = 0,
-}
-
-
+#[derive(Debug,Copy)]
 pub struct Token {
-    color: TokenColor,
-    size: Size,
+    color: i32,
+    // size: Size,
 }
 
 
-pub struct Block {
-    tokens: Vec<Token>,
+fn update_token(mut token:Token, render_color: i32) -> Token {
+    token.color = render_color;
+    return token
 }
-
-pub struct Board {
-    pub plate: [[Block; 3]; 3],
-}
-
 
 fn main() {
-    let a = "asd";
-    let num:i32 = a.parse().unwrap_or_else();
+    // let t1 = Token {
+    //     color: TokenColor::RED,
+    //     size: Size::BIG,
+    // };
+    // let changed_token = update_token(t1, TokenColor::GREEN);
+    // println!("t1: {:?}, changed_token: {:?}", t1, changed_token);
+    let t1 = Token {
+        color: 123
+    };
+    let changed_token = update_token(t1, 2);
+    println!("t1: {:?}, changed_token: {:?}", t1, changed_token);
 }
