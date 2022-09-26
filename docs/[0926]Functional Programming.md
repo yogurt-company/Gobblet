@@ -25,7 +25,40 @@
 - 一個function的輸入，不會因為外部的變數而改變輸出
 
 這邊舉一個反例. 我們就想要寫一個function去 count 出現元素的次數.
-```rust
-let counter = HashMap::new();
+如果是python的玩家大概一開始會寫出這樣的東西:
 
+```rust
+
+use std::collections::HashMap;
+
+
+fn get_word_frequency(mut word_frequency:HashMap<& str,u32>, word: & str) -> () {
+    let count = word_frequency.entry(word).or_insert(0);
+    *count += 1;
+}
+
+fn main(){
+    let mut word_map:HashMap<&str,u32> = HashMap::new();
+    let ex = ["a","b","c","a","b","a"];
+    for c in ex {
+        get_word_frequency(word_map,c);
+    }
+
+}
 ```
+這個會造成非常多不同的錯誤. 尤其是處理沒有copy trait的物件.需要非常細緻的處理life time.
+在我們花更多時間之前，讓我們來看看FP的解法.
+
+```rust
+use std::collections::HashMap;
+fn main(){
+    let ex = ["a","b","c","a","b","a"];
+    let counter = ex.iter().fold(HashMap::new(), |mut acc, x| {
+        *acc.entry(x).or_insert(0) += 1;
+        acc
+    });
+    println!("{:?}", counter);
+}
+```
+還季前面說的嗎? 由於rust compiler/optimizer是個有經驗的店員, 這邊透過ＦＰ的方式去寫，他會自動幫我們處理好所有的life time問題.
+
