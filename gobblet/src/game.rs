@@ -7,18 +7,37 @@ use rand::Rng;
 use rstest::*;
 use uuid::Uuid;
 
-#[repr(u8)]
-#[derive(Clone, Copy, Debug,PartialEq, Eq, IntEnum)]
-pub enum TokenColor {
-    RED = 0,
-    GREEN = 1,
+const WIDTH: usize = 3;
+
+
+
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PlayerId {
+    RED,
+    GREEN,
 }
-impl Not for TokenColor {
+impl Not for PlayerId {
     type Output = Self;
     fn not(self) -> Self::Output {
         match self {
-            TokenColor::RED => TokenColor::GREEN,
-            TokenColor::GREEN => TokenColor::RED,
+            PlayerId::RED => PlayerId::GREEN,
+            PlayerId::GREEN => PlayerId::RED,
+        }
+    }
+}
+
+impl HasTurnOrder for PlayerId {
+    fn next(&self) -> Self {
+        match self {
+            PlayerId::RED => PlayerId::GREEN,
+            PlayerId::GREEN => PlayerId::RED,
+        }
+    }
+    fn prev(&self) -> Self {
+        match self {
+            PlayerId::RED => PlayerId::GREEN,
+            PlayerId::GREEN => PlayerId::RED,
         }
     }
 }
@@ -33,22 +52,22 @@ pub enum Size {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Token {
-    color: TokenColor,
+    color: PlayerId,
     size: Size,
 }
 
 impl Token {
-    pub fn new(color: TokenColor, size: Size) -> Token {
+    pub fn new(color: PlayerId, size: Size) -> Token {
         Token { color, size }
     }
     pub fn to_string(&self) -> String {
         match self.color {
-            TokenColor::RED => match self.size {
+            PlayerId::RED => match self.size {
                 Size::BIG => "🔴".red().bold().to_string(),
                 Size::MID => "🔴".red().to_string(),
                 Size::SMALL => "🔴".red().dimmed().to_string(),
             },
-            TokenColor::GREEN => match self.size {
+            PlayerId::GREEN => match self.size {
                 Size::BIG => "🟢".green().bold().to_string(),
                 Size::MID => "🟢".green().to_string(),
                 Size::SMALL => "🟢".green().dimmed().to_string(),
@@ -107,25 +126,25 @@ impl Board {
         Board { plate: blocks }
     }
     // FP寫的
-    fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<TokenColor> {
+    fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<PlayerId> {
         let result = pattern
             .iter()
             .map(|axis| self.plate[axis[0]][axis[1]].get_outermost_token())
             .filter(|t| t.is_some())
             .map(|t| t.unwrap().color)
             .fold([0, 0], |acc, c| match c {
-                TokenColor::RED => [acc[0] + 1, acc[1]],
-                TokenColor::GREEN => [acc[0], acc[1] + 1],
+                PlayerId::RED => [acc[0] + 1, acc[1]],
+                PlayerId::GREEN => [acc[0], acc[1] + 1],
                 _ => acc,
             });
         match result {
-            [3, 0] => Some(TokenColor::RED),
-            [0, 3] => Some(TokenColor::GREEN),
+            [3, 0] => Some(PlayerId::RED),
+            [0, 3] => Some(PlayerId::GREEN),
             _ => None,
         }
     }
     // TODO NxN genernalize
-    pub fn is_gameover(&self) -> Option<TokenColor> {
+    pub fn is_gameover(&self) -> Option<PlayerId> {
         let patterns: [[[usize; 2]; 3]; 8] = [
             [[2, 0], [1, 1], [0, 2]],
             [[0, 0], [1, 1], [2, 2]],
@@ -176,12 +195,12 @@ impl Board {
 }
 
 struct Player {
-    color: TokenColor,
+    color: PlayerId,
     inventory: [u8; 3],
 }
 
 impl Player {
-    pub fn new(color: TokenColor) -> Player {
+    pub fn new(color: PlayerId) -> Player {
         Player {
             color,
             inventory: [2, 2, 2],
@@ -244,14 +263,14 @@ pub enum ActionType {
 #[derive(Clone, Copy, Debug)]
 pub struct Action{
     pub action_type: ActionType,
-    pub player: TokenColor,
+    pub player: PlayerId,
     pub from_inventory: Option<Token>,
     pub from_xy: Option<[usize; 2]>,
     pub to_xy: Option<[usize; 2]>,
 }
 
 impl Action {
-    pub fn new(action_type: ActionType, player: TokenColor, from_inventory: Option<Token>, from_xy: Option<[usize; 2]>, to_xy: Option<[usize; 2]>) -> Action {
+    pub fn new(action_type: ActionType, player: PlayerId, from_inventory: Option<Token>, from_xy: Option<[usize; 2]>, to_xy: Option<[usize; 2]>) -> Action {
         match action_type {
             ActionType::FromInventory => {
                 Action {
@@ -277,22 +296,22 @@ impl Action {
 
 
 
-pub struct Game {
+pub struct Gobblet {
     uid: String,
     board: Board,
-    round_flag: TokenColor,
+    round_flag: PlayerId,
     players: [Player; 2],
 }
 
-impl Game {
-    pub fn new() -> Game {
+impl Gobblet {
+    pub fn new() -> Gobblet {
         let mut rng = rand::thread_rng();
         let round_flag = match rng.gen_range(0..2) {
-            0 => TokenColor::RED,
-            1 => TokenColor::GREEN,
-            _ => TokenColor::RED,
+            0 => PlayerId::RED,
+            1 => PlayerId::GREEN,
+            _ => PlayerId::RED,
         };
-        Game {
+        Gobblet {
             uid: Uuid::new_v4().to_string(),
             board: empty_board(),
             round_flag,
@@ -343,7 +362,7 @@ impl Game {
             }
         }
     }
-    fn processing_action(&mut self, action: Action) {
+    fn processing_action(&mut self, action: Action) -> bool{
         match action.action_type {
             ActionType::FromInventory => {
                 if let Some(token) = action.from_inventory {
@@ -354,8 +373,10 @@ impl Game {
                         action.to_xy.unwrap()[1],
                     ) {
                         self.round_flag = !self.round_flag;
+                        true
                     } else {
                         println!("invalid action");
+                        false
                     }
                 }
             }
@@ -368,9 +389,11 @@ impl Game {
                     action.to_xy.unwrap()[1],
                 ) {
                     self.round_flag = !self.round_flag;
+                    true
                 }
                 else {
                     println!("invalid action");
+                    false
                 }
             }
         }
@@ -450,23 +473,142 @@ impl Game {
     }
 }
 
+
+impl Game<WIDTH> for Gobblet {
+    const NAME: &'static str = "Gobblet";
+    const NUM_PLAYERS: usize = 2;
+    const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last
+
+    type PlayerId = PlayerId;
+    type Action = Column;
+    type ActionIterator = FreeColumns;
+
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn player(&self) -> Self::PlayerId {
+        self.player
+    }
+
+    fn is_over(&self) -> bool {
+        self.board.is_gameover().is_some()
+    }
+
+    fn reward(&self, player_id: Self::PlayerId) -> f32 {
+        // assert!(self.is_over());
+
+        match self.winner() {
+            Some(winner) => {
+                if winner == player_id {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+            None => 0.0,
+        }
+    }
+    //list all possible actions.
+    fn iter_actions(&self) -> Self::ActionIterator {
+        FreeColumns {
+            height: self.height,
+            col: 0,
+        }
+    }
+
+    fn step(&mut self, action: &Self::Action) -> bool {
+        let col: usize = (*action).into();
+
+        // assert!(self.height[col] < HEIGHT as u8);
+
+        self.my_bb ^= 1 << (self.height[col] + (HEIGHT as u8) * (col as u8));
+        self.height[col] += 1;
+
+        std::mem::swap(&mut self.my_bb, &mut self.op_bb);
+        self.player = self.player.next();
+
+        self.is_over()
+    }
+
+    const DIMS: &'static [i64] = &[1, 1, HEIGHT as i64, WIDTH as i64];
+    type Features = [[[f32; WIDTH]; HEIGHT]; 1];
+    fn features(&self) -> Self::Features {
+        let mut s = Self::Features::default();
+        for row in 0..HEIGHT {
+            for col in 0..WIDTH {
+                let index = 1 << (row + HEIGHT * col);
+                if self.my_bb & index != 0 {
+                    s[0][row][col] = 1.0;
+                } else if self.op_bb & index != 0 {
+                    s[0][row][col] = -1.0;
+                } else {
+                    s[0][row][col] = -0.1;
+                }
+            }
+        }
+        for col in 0..WIDTH {
+            let h = self.height[col] as usize;
+            if h < HEIGHT {
+                s[0][h][col] = 0.1;
+            }
+        }
+        s
+    }
+
+    fn print(&self) {
+        if self.is_over() {
+            println!("{:?} won", self.winner());
+        } else {
+            println!("{:?} to play", self.player);
+            println!(
+                "Available Actions: {:?}",
+                self.iter_actions().collect::<Vec<Column>>()
+            );
+        }
+
+        let (my_char, op_char) = match self.player {
+            PlayerId::Black => ("B", "r"),
+            PlayerId::Red => ("r", "B"),
+        };
+
+        for row in (0..HEIGHT).rev() {
+            for col in 0..WIDTH {
+                let index = 1 << (row + HEIGHT * col);
+                print!(
+                    "{} ",
+                    if self.my_bb & index != 0 {
+                        my_char
+                    } else if self.op_bb & index != 0 {
+                        op_char
+                    } else {
+                        "."
+                    }
+                );
+            }
+            println!();
+        }
+    }
+}
+
+
 #[fixture]
 fn end_board() -> Board {
     Board::new([
         [
-            Block::new(vec![Token::new(TokenColor::RED, Size::BIG)]),
-            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::RED, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
         ],
         [
-            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(TokenColor::RED, Size::BIG)]),
-            Block::new(vec![Token::new(TokenColor::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::RED, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
         ],
         [
-            Block::new(vec![Token::new(TokenColor::GREEN, Size::SMALL)]),
-            Block::new(vec![Token::new(TokenColor::GREEN, Size::SMALL)]),
-            Block::new(vec![Token::new(TokenColor::RED, Size::SMALL)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::SMALL)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::SMALL)]),
+            Block::new(vec![Token::new(PlayerId::RED, Size::SMALL)]),
         ],
     ])
 }
@@ -482,7 +624,7 @@ fn empty_board() -> Board {
 
 #[fixture]
 fn empty_player() -> Player {
-    let mut p = Player::new(TokenColor::RED);
+    let mut p = Player::new(PlayerId::RED);
     p.inventory = [0, 0, 0];
     p
 }
@@ -494,7 +636,7 @@ mod test_board {
 
     #[rstest]
     fn test_end_game(end_board: Board) {
-        assert!(end_board.is_gameover() == Some(TokenColor::RED));
+        assert!(end_board.is_gameover() == Some(PlayerId::RED));
     }
 
     #[rstest]
@@ -541,7 +683,7 @@ mod test_player {
             empty_player.place_from_board(emb, 0, 0, 1, 1) == false,
             "should be false from empty to empty"
         );
-        emb.plate[0][0].push_token(Token::new(TokenColor::RED, Size::BIG));
+        emb.plate[0][0].push_token(Token::new(PlayerId::RED, Size::BIG));
         assert!(empty_player.place_from_board(emb, 0, 0, 1, 1) == true);
         assert!(emb.plate[0][0].tokens.is_empty());
         assert!(emb.plate[1][1].tokens.is_empty() == false);
