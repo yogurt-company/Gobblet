@@ -61,6 +61,12 @@ async fn get_two_sites_async() {
 在 Rust 中已經具備了 `async` 與 `await`
 而當使用 `async fn` 時, 會回傳一個 `Future` 物件
 
+而 `Future` 不是預載在 Rust 中, 需要在 `Cargo.toml` 中加入 `futures` 來使用
+```toml
+[dependencies]
+futures = "0.3"
+```
+
 當 `Future` 被建立時, 其實並不會立即執行, 直到他被 `polling`
 這意味著在 Rust 中使用 `async` 時並不一定真的會占用該 `thread` 去執行其中的程式
 直到我們有需要他的時候, 一般來說是使用 `await` 來等待 `Future` 的執行結果
@@ -68,3 +74,29 @@ async fn get_two_sites_async() {
 
 但必須注意的是當我們呼叫 `await` 時, 會將目前的 `thread` 交出去, 並等待 `Future` 的執行結果
 而使用的 `thread` 則不一定是當時建立 `Future` 的 `thread`
+
+```rust
+async fn get_book_and_music() -> (Book, Music) {
+    let book = get_book().await;
+    let music = get_music().await;
+    (book, music)
+}
+```
+
+而 `Future` 的特性有時也會造成一些麻煩
+例如以上的程式碼片段
+實際上在 `get_music().await` 完成前
+並不會一起執行 `get_book().await`
+除非我們使用 `join!`
+
+```rust
+use futures::join;
+
+async fn get_book_and_music() -> (Book, Music) {
+    let book_fut = get_book();
+    let music_fut = get_music();
+    join!(book_fut, music_fut)
+}
+```
+
+這樣子 `get_book().await` 與 `get_music().await` 就會一起執行了
