@@ -1,6 +1,6 @@
-mod game;
+mod gobblet;
 
 fn main() {
-    let mut game = game::Gobblet::new();
+    let mut game = gobblet::Gobblet::new();
     game.processing()
 }

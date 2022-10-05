@@ -6,8 +6,9 @@ use int_enum::IntEnum;
 use rand::Rng;
 use rstest::*;
 use uuid::Uuid;
+use synthesis::game::*;
 
-const WIDTH: usize = 3;
+const GAME_SIZE: usize = 3;
 
 
 
@@ -168,14 +169,7 @@ impl Board {
         None
     }
 
-    pub fn is_valid_take_from_board(&self, x: usize, y: usize) -> bool {
-        if x < 3 && y < 3 {
-            if self.plate[y][x].get_outermost_token().is_some() {
-                return true;
-            }
-        }
-        false
-    }
+
     // TODO Add Json Status format generator
     pub fn display(&self) {
         for row in self.plate.iter() {
@@ -216,7 +210,7 @@ impl Player {
         }
     }
 
-    pub fn place_from_inventory(
+    pub fn is_valid_place_from_inventory(
         &mut self,
         size: Size,
         board: &mut Board,
@@ -224,15 +218,30 @@ impl Player {
         y: usize,
     ) -> bool {
         if self.inventory[size as usize] > 0 {
-            if board.plate[y][x].push_token(Token::new(self.color, size)) {
-                self.inventory[size as usize] -= 1;
+            if board.plate[y][x].is_stackable(Token::new(self.color, size)) {
                 return true;
             }
         }
         false
     }
 
-    pub fn place_from_board(
+    pub fn place_from_inventory(
+        &mut self,
+        size: Size,
+        board: &mut Board,
+        x: usize,
+        y: usize,
+    ) -> bool {
+        if self.is_valid_place_from_inventory(size, board, x, y) {
+            self.inventory[size as usize] -= 1;
+            board.plate[y][x].push_token(Token::new(self.color, size));
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_valid_swap_from_board(
         &mut self,
         board: &mut Board,
         x: usize,
@@ -240,14 +249,32 @@ impl Player {
         x2: usize,
         y2: usize,
     ) -> bool {
-        if board.is_valid_take_from_board(x, y) {
-            let token = board.plate[y][x].pop_outermost_token();
-            if board.plate[y2][x2].push_token(token) {
-                return true;
+        if x < GAME_SIZE && y < GAME_SIZE {
+            if board.plate[y][x].get_outermost_token().is_some() {
+                if board.plate[y2][x2].is_stackable(board.plate[y][x].get_outermost_token().unwrap()) {
+                    return true;
+                }
             }
-            return false;
         }
-        return false;
+        false
+    }
+
+
+    pub fn swap_token_from_board(
+        &mut self,
+        board: &mut Board,
+        x: usize,
+        y: usize,
+        x2: usize,
+        y2: usize,
+    ) -> bool {
+        if self.is_valid_swap_from_board(board, x, y, x2, y2) {
+            let token = board.plate[y][x].pop_outermost_token();
+            board.plate[y2][x2].push_token(token);
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -362,7 +389,7 @@ impl Gobblet {
             }
         }
     }
-    fn processing_action(&mut self, action: Action) -> bool{
+    fn processing_action(&mut self, action: Action) {
         match action.action_type {
             ActionType::FromInventory => {
                 if let Some(token) = action.from_inventory {
@@ -373,15 +400,13 @@ impl Gobblet {
                         action.to_xy.unwrap()[1],
                     ) {
                         self.round_flag = !self.round_flag;
-                        true
                     } else {
                         println!("invalid action");
-                        false
                     }
                 }
             }
             ActionType::FromBoard => {
-                if self.players[action.player as usize].place_from_board(
+                if self.players[action.player as usize].swap_token_from_board(
                     &mut self.board,
                     action.from_xy.unwrap()[0],
                     action.from_xy.unwrap()[1],
@@ -389,11 +414,9 @@ impl Gobblet {
                     action.to_xy.unwrap()[1],
                 ) {
                     self.round_flag = !self.round_flag;
-                    true
                 }
                 else {
                     println!("invalid action");
-                    false
                 }
             }
         }
@@ -458,7 +481,7 @@ impl Gobblet {
                 }
             }
             ActionType::FromBoard => {
-                if self.players[action.player as usize].place_from_board(
+                if self.players[action.player as usize].swap_token_from_board(
                     &mut self.board,
                     action.from_xy.unwrap()[0],
                     action.from_xy.unwrap()[1],
@@ -474,122 +497,122 @@ impl Gobblet {
 }
 
 
-impl Game<WIDTH> for Gobblet {
-    const NAME: &'static str = "Gobblet";
-    const NUM_PLAYERS: usize = 2;
-    const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last
-
-    type PlayerId = PlayerId;
-    type Action = Column;
-    type ActionIterator = FreeColumns;
-
-    fn new() -> Self {
-        Self::new()
-    }
-
-    fn player(&self) -> Self::PlayerId {
-        self.player
-    }
-
-    fn is_over(&self) -> bool {
-        self.board.is_gameover().is_some()
-    }
-
-    fn reward(&self, player_id: Self::PlayerId) -> f32 {
-        // assert!(self.is_over());
-
-        match self.winner() {
-            Some(winner) => {
-                if winner == player_id {
-                    1.0
-                } else {
-                    -1.0
-                }
-            }
-            None => 0.0,
-        }
-    }
-    //list all possible actions.
-    fn iter_actions(&self) -> Self::ActionIterator {
-        FreeColumns {
-            height: self.height,
-            col: 0,
-        }
-    }
-
-    fn step(&mut self, action: &Self::Action) -> bool {
-        let col: usize = (*action).into();
-
-        // assert!(self.height[col] < HEIGHT as u8);
-
-        self.my_bb ^= 1 << (self.height[col] + (HEIGHT as u8) * (col as u8));
-        self.height[col] += 1;
-
-        std::mem::swap(&mut self.my_bb, &mut self.op_bb);
-        self.player = self.player.next();
-
-        self.is_over()
-    }
-
-    const DIMS: &'static [i64] = &[1, 1, HEIGHT as i64, WIDTH as i64];
-    type Features = [[[f32; WIDTH]; HEIGHT]; 1];
-    fn features(&self) -> Self::Features {
-        let mut s = Self::Features::default();
-        for row in 0..HEIGHT {
-            for col in 0..WIDTH {
-                let index = 1 << (row + HEIGHT * col);
-                if self.my_bb & index != 0 {
-                    s[0][row][col] = 1.0;
-                } else if self.op_bb & index != 0 {
-                    s[0][row][col] = -1.0;
-                } else {
-                    s[0][row][col] = -0.1;
-                }
-            }
-        }
-        for col in 0..WIDTH {
-            let h = self.height[col] as usize;
-            if h < HEIGHT {
-                s[0][h][col] = 0.1;
-            }
-        }
-        s
-    }
-
-    fn print(&self) {
-        if self.is_over() {
-            println!("{:?} won", self.winner());
-        } else {
-            println!("{:?} to play", self.player);
-            println!(
-                "Available Actions: {:?}",
-                self.iter_actions().collect::<Vec<Column>>()
-            );
-        }
-
-        let (my_char, op_char) = match self.player {
-            PlayerId::Black => ("B", "r"),
-            PlayerId::Red => ("r", "B"),
-        };
-
-        for row in (0..HEIGHT).rev() {
-            for col in 0..WIDTH {
-                let index = 1 << (row + HEIGHT * col);
-                print!(
-                    "{} ",
-                    if self.my_bb & index != 0 {
-                        my_char
-                    } else if self.op_bb & index != 0 {
-                        op_char
-                    } else {
-                        "."
-                    }
-                );
-            }
-            println!();
-        }
-    }
-}
+// impl Game<GAME_SIZE> for Gobblet {
+//     const NAME: &'static str = "Gobblet";
+//     const NUM_PLAYERS: usize = 2;
+//     const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last
+//
+//     type PlayerId = PlayerId;
+//     type Action = Column;
+//     type ActionIterator = FreeColumns;
+//
+//     fn new() -> Self {
+//         Self::new()
+//     }
+//
+//     fn player(&self) -> Self::PlayerId {
+//         self.player
+//     }
+//
+//     fn is_over(&self) -> bool {
+//         self.board.is_gameover().is_some()
+//     }
+//
+//     fn reward(&self, player_id: Self::PlayerId) -> f32 {
+//         // assert!(self.is_over());
+//
+//         match self.winner() {
+//             Some(winner) => {
+//                 if winner == player_id {
+//                     1.0
+//                 } else {
+//                     -1.0
+//                 }
+//             }
+//             None => 0.0,
+//         }
+//     }
+//     //list all possible actions.
+//     fn iter_actions(&self) -> Self::ActionIterator {
+//         FreeColumns {
+//             height: self.height,
+//             col: 0,
+//         }
+//     }
+//
+//     fn step(&mut self, action: &Self::Action) -> bool {
+//         let col: usize = (*action).into();
+//
+//         // assert!(self.height[col] < HEIGHT as u8);
+//
+//         self.my_bb ^= 1 << (self.height[col] + (HEIGHT as u8) * (col as u8));
+//         self.height[col] += 1;
+//
+//         std::mem::swap(&mut self.my_bb, &mut self.op_bb);
+//         self.player = self.player.next();
+//
+//         self.is_over()
+//     }
+//
+//     const DIMS: &'static [i64] = &[1, 1, HEIGHT as i64, GAME_SIZE as i64];
+//     type Features = [[[f32; GAME_SIZE]; HEIGHT]; 1];
+//     fn features(&self) -> Self::Features {
+//         let mut s = Self::Features::default();
+//         for row in 0..HEIGHT {
+//             for col in 0..GAME_SIZE {
+//                 let index = 1 << (row + HEIGHT * col);
+//                 if self.my_bb & index != 0 {
+//                     s[0][row][col] = 1.0;
+//                 } else if self.op_bb & index != 0 {
+//                     s[0][row][col] = -1.0;
+//                 } else {
+//                     s[0][row][col] = -0.1;
+//                 }
+//             }
+//         }
+//         for col in 0..GAME_SIZE {
+//             let h = self.height[col] as usize;
+//             if h < HEIGHT {
+//                 s[0][h][col] = 0.1;
+//             }
+//         }
+//         s
+//     }
+//
+//     fn print(&self) {
+//         if self.is_over() {
+//             println!("{:?} won", self.winner());
+//         } else {
+//             println!("{:?} to play", self.player);
+//             println!(
+//                 "Available Actions: {:?}",
+//                 self.iter_actions().collect::<Vec<Column>>()
+//             );
+//         }
+//
+//         let (my_char, op_char) = match self.player {
+//             PlayerId::Black => ("B", "r"),
+//             PlayerId::Red => ("r", "B"),
+//         };
+//
+//         for row in (0..HEIGHT).rev() {
+//             for col in 0..GAME_SIZE {
+//                 let index = 1 << (row + HEIGHT * col);
+//                 print!(
+//                     "{} ",
+//                     if self.my_bb & index != 0 {
+//                         my_char
+//                     } else if self.op_bb & index != 0 {
+//                         op_char
+//                     } else {
+//                         "."
+//                     }
+//                 );
+//             }
+//             println!();
+//         }
+//     }
+// }
 
 
 #[fixture]
@@ -680,12 +703,15 @@ mod test_player {
         let endb = &mut end_board;
         let emb = &mut empty_board;
         assert!(
-            empty_player.place_from_board(emb, 0, 0, 1, 1) == false,
+            empty_player.swap_token_from_board(emb, 0, 0, 1, 1) == false,
             "should be false from empty to empty"
         );
         emb.plate[0][0].push_token(Token::new(PlayerId::RED, Size::BIG));
-        assert!(empty_player.place_from_board(emb, 0, 0, 1, 1) == true);
+        assert!(empty_player.swap_token_from_board(emb, 0, 0, 1, 1) == true);
         assert!(emb.plate[0][0].tokens.is_empty());
         assert!(emb.plate[1][1].tokens.is_empty() == false);
     }
 }
+
+
+
