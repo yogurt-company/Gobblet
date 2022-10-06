@@ -3,6 +3,8 @@ use std::ops::Not;
 
 use colored::*;
 use int_enum::IntEnum;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use rand::Rng;
 use rstest::*;
 use uuid::Uuid;
@@ -44,7 +46,7 @@ impl HasTurnOrder for PlayerId {
 }
 
 #[repr(usize)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, EnumIter, PartialOrd)]
 pub enum Size {
     BIG = 2,
     MID = 1,
@@ -276,14 +278,47 @@ impl Player {
             false
         }
     }
+
+    pub fn list_all_valid_actions(&mut self, board: &mut Board) -> Vec<Action> {
+        let mut actions = Vec::new();
+        for y in 0..GAME_SIZE {
+            for x in 0..GAME_SIZE {
+                for y2 in 0..GAME_SIZE {
+                    for x2 in 0..GAME_SIZE {
+                        if self.is_valid_swap_from_board(board, x, y, x2, y2) {
+                            actions.push(Action{
+                                action_type: ActionType::SWAP,
+                                player:self.color,
+                                from_inventory: None,
+                                from_xy: Some([x, y]),
+                                to_xy: Some([x2, y2]),
+                            });
+                        }
+                    }
+                }
+                for size in Size::iter() {
+                    if self.is_valid_place_from_inventory(size, board, x, y) {
+                        actions.push(Action{
+                                action_type: ActionType::FromInventory,
+                                player:self.color,
+                                from_inventory: Some(Token{color:self.color, size}),
+                                from_xy: None,
+                                to_xy: Some([x, y]),
+                            });
+                    }
+                }
+            }
+        }
+        actions
+    }
 }
 
-// Game processing  => Action + stauts = > New Status
+
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
 pub enum ActionType {
     FromInventory = 0,
-    FromBoard = 1,
+    SWAP = 1,
 }
 
 
@@ -308,7 +343,7 @@ impl Action {
                     to_xy,
                 }
             }
-            ActionType::FromBoard => {
+            ActionType::SWAP => {
                 Action {
                     action_type,
                     player,
@@ -381,7 +416,7 @@ impl Gobblet {
                 let xy = Self::get_xy();
                 let x2 = xy[0];
                 let y2 = xy[1];
-                Some(Action::new(ActionType::FromBoard, self.round_flag, None, Some([x, y]), Some([x2, y2])))
+                Some(Action::new(ActionType::SWAP, self.round_flag, None, Some([x, y]), Some([x2, y2])))
             }
             _ => {
                 println!("invalid input");
@@ -405,7 +440,7 @@ impl Gobblet {
                     }
                 }
             }
-            ActionType::FromBoard => {
+            ActionType::SWAP => {
                 if self.players[action.player as usize].swap_token_from_board(
                     &mut self.board,
                     action.from_xy.unwrap()[0],
@@ -480,7 +515,7 @@ impl Gobblet {
                     }
                 }
             }
-            ActionType::FromBoard => {
+            ActionType::SWAP => {
                 if self.players[action.player as usize].swap_token_from_board(
                     &mut self.board,
                     action.from_xy.unwrap()[0],
@@ -652,6 +687,13 @@ fn empty_player() -> Player {
     p
 }
 
+#[fixture]
+fn full_player() -> Player {
+    let mut p = Player::new(PlayerId::RED);
+    p.inventory = [2, 2, 2];
+    p
+}
+
 #[cfg(test)]
 mod test_board {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -710,6 +752,21 @@ mod test_player {
         assert!(empty_player.swap_token_from_board(emb, 0, 0, 1, 1) == true);
         assert!(emb.plate[0][0].tokens.is_empty());
         assert!(emb.plate[1][1].tokens.is_empty() == false);
+    }
+
+    #[rstest]
+    fn test_list_all_actions(
+        mut empty_player: Player,
+        mut full_player: Player,
+        mut empty_board: Board,
+    ){
+        let emb = &mut empty_board;
+        const ALL_POSSIBLE_FROM_INVENTOR_ACTIONS:usize = GAME_SIZE*GAME_SIZE*3;
+        let actions_list = full_player.list_all_valid_actions(emb);
+        assert_eq!(actions_list.len(),ALL_POSSIBLE_FROM_INVENTOR_ACTIONS);
+        let actions_list = empty_player.list_all_valid_actions(emb);
+        assert_eq!(actions_list.len(),0);
+
     }
 }
 

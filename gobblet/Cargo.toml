@@ -11,6 +11,8 @@ rstest = "0.15.0"
 rand = "0.8.5"
 boolenum = "0.1.0"
 colored = "2.0.0"
+strum = "0.24"
+strum_macros = "0.24"
 synthesis = { path = "../synthesis" }
 slimnn = { path = "../slimnn" }
 [dependencies.uuid]
