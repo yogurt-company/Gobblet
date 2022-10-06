@@ -14,12 +14,13 @@ const GAME_SIZE: usize = 3;
 
 
 
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(usize)]
+#[derive(Clone, Copy, Debug, PartialEq, IntEnum, Eq, PartialOrd, Ord, std::hash::Hash)]
 pub enum PlayerId {
-    RED,
-    GREEN,
+    RED = 0,
+    GREEN = 1,
 }
+
 impl Not for PlayerId {
     type Output = Self;
     fn not(self) -> Self::Output {
@@ -46,14 +47,14 @@ impl HasTurnOrder for PlayerId {
 }
 
 #[repr(usize)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, EnumIter, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, EnumIter, PartialOrd, std::hash::Hash)]
 pub enum Size {
     BIG = 2,
     MID = 1,
     SMALL = 0,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, std::hash::Hash, PartialEq, Eq)]
 pub struct Token {
     color: PlayerId,
     size: Size,
@@ -79,7 +80,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, std::hash::Hash, PartialEq, Eq)]
 pub struct Block {
     tokens: Vec<Token>,
 }
@@ -119,7 +120,7 @@ impl Block {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, std::hash::Hash, PartialEq, Eq)]
 pub struct Board {
     pub plate: [[Block; 3]; 3],
 }
@@ -189,7 +190,7 @@ impl Board {
         }
     }
 }
-
+#[derive(Clone, Copy, Debug, Eq, PartialEq, std::hash::Hash)]
 struct Player {
     color: PlayerId,
     inventory: [u8; 3],
@@ -215,7 +216,7 @@ impl Player {
     pub fn is_valid_place_from_inventory(
         &mut self,
         size: Size,
-        board: &mut Board,
+        board: &Board,
         x: usize,
         y: usize,
     ) -> bool {
@@ -245,7 +246,7 @@ impl Player {
 
     pub fn is_valid_swap_from_board(
         &mut self,
-        board: &mut Board,
+        board: &Board,
         x: usize,
         y: usize,
         x2: usize,
@@ -279,7 +280,7 @@ impl Player {
         }
     }
 
-    pub fn list_all_valid_actions(&mut self, board: &mut Board) -> Vec<Action> {
+    pub fn list_all_valid_actions(&mut self, board: &Board) -> Vec<Action> {
         let mut actions = Vec::new();
         for y in 0..GAME_SIZE {
             for x in 0..GAME_SIZE {
@@ -314,15 +315,15 @@ impl Player {
 }
 
 
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
+#[repr(usize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, std::hash::Hash)]
 pub enum ActionType {
     FromInventory = 0,
     SWAP = 1,
 }
 
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, std::hash::Hash, PartialEq, Eq)]
 pub struct Action{
     pub action_type: ActionType,
     pub player: PlayerId,
@@ -355,9 +356,23 @@ impl Action {
         }
     }
 }
+// SWAP 9*9
+// INV 3*9
+// [SWAP |INV]
+impl From<usize> for Action {
+    fn from(i: usize) -> Self {
+        const SWAP_RANGE:usize = (GAME_SIZE * GAME_SIZE) * (GAME_SIZE * GAME_SIZE);
+        const INV_RANGE:usize = SWAP_RANGE + (GAME_SIZE * GAME_SIZE * 3);
+        let action_type = match i{
+            0..=SWAP_RANGE => ActionType::SWAP,
+            SWAP_RANGE..=INV_RANGE => ActionType::FromInventory,
+            _ => panic!("Action out of range"),
+        };
 
+    }
+}
 
-
+#[derive(Debug, std::hash::Hash, Clone, PartialEq, Eq)]
 pub struct Gobblet {
     uid: String,
     board: Board,
@@ -532,122 +547,122 @@ impl Gobblet {
 }
 
 
-// impl Game<GAME_SIZE> for Gobblet {
-//     const NAME: &'static str = "Gobblet";
-//     const NUM_PLAYERS: usize = 2;
-//     const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last
-//
-//     type PlayerId = PlayerId;
-//     type Action = Column;
-//     type ActionIterator = FreeColumns;
-//
-//     fn new() -> Self {
-//         Self::new()
-//     }
-//
-//     fn player(&self) -> Self::PlayerId {
-//         self.player
-//     }
-//
-//     fn is_over(&self) -> bool {
-//         self.board.is_gameover().is_some()
-//     }
-//
-//     fn reward(&self, player_id: Self::PlayerId) -> f32 {
-//         // assert!(self.is_over());
-//
-//         match self.winner() {
-//             Some(winner) => {
-//                 if winner == player_id {
-//                     1.0
-//                 } else {
-//                     -1.0
-//                 }
-//             }
-//             None => 0.0,
-//         }
-//     }
-//     //list all possible actions.
-//     fn iter_actions(&self) -> Self::ActionIterator {
-//         FreeColumns {
-//             height: self.height,
-//             col: 0,
-//         }
-//     }
-//
-//     fn step(&mut self, action: &Self::Action) -> bool {
-//         let col: usize = (*action).into();
-//
-//         // assert!(self.height[col] < HEIGHT as u8);
-//
-//         self.my_bb ^= 1 << (self.height[col] + (HEIGHT as u8) * (col as u8));
-//         self.height[col] += 1;
-//
-//         std::mem::swap(&mut self.my_bb, &mut self.op_bb);
-//         self.player = self.player.next();
-//
-//         self.is_over()
-//     }
-//
-//     const DIMS: &'static [i64] = &[1, 1, HEIGHT as i64, GAME_SIZE as i64];
-//     type Features = [[[f32; GAME_SIZE]; HEIGHT]; 1];
-//     fn features(&self) -> Self::Features {
-//         let mut s = Self::Features::default();
-//         for row in 0..HEIGHT {
-//             for col in 0..GAME_SIZE {
-//                 let index = 1 << (row + HEIGHT * col);
-//                 if self.my_bb & index != 0 {
-//                     s[0][row][col] = 1.0;
-//                 } else if self.op_bb & index != 0 {
-//                     s[0][row][col] = -1.0;
-//                 } else {
-//                     s[0][row][col] = -0.1;
-//                 }
-//             }
-//         }
-//         for col in 0..GAME_SIZE {
-//             let h = self.height[col] as usize;
-//             if h < HEIGHT {
-//                 s[0][h][col] = 0.1;
-//             }
-//         }
-//         s
-//     }
-//
-//     fn print(&self) {
-//         if self.is_over() {
-//             println!("{:?} won", self.winner());
-//         } else {
-//             println!("{:?} to play", self.player);
-//             println!(
-//                 "Available Actions: {:?}",
-//                 self.iter_actions().collect::<Vec<Column>>()
-//             );
-//         }
-//
-//         let (my_char, op_char) = match self.player {
-//             PlayerId::Black => ("B", "r"),
-//             PlayerId::Red => ("r", "B"),
-//         };
-//
-//         for row in (0..HEIGHT).rev() {
-//             for col in 0..GAME_SIZE {
-//                 let index = 1 << (row + HEIGHT * col);
-//                 print!(
-//                     "{} ",
-//                     if self.my_bb & index != 0 {
-//                         my_char
-//                     } else if self.op_bb & index != 0 {
-//                         op_char
-//                     } else {
-//                         "."
-//                     }
-//                 );
-//             }
-//             println!();
-//         }
-//     }
-// }
+
+struct ActionIterator {
+    game: Gobblet,
+    iter_count: usize,
+}
+
+
+
+impl Iterator for ActionIterator {
+    type Item = Action;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let valid_actions = self.game.players[self.game.round_flag as usize].list_all_valid_actions(&self.game.board);
+        if self.iter_count < valid_actions.len() {
+            let action = valid_actions[self.iter_count];
+            self.iter_count += 1;
+            Some(action)
+        } else {
+            None
+        }
+    }
+}
+
+impl Game<GAME_SIZE> for Gobblet {
+    const NAME: &'static str = "Gobblet";
+    const NUM_PLAYERS: usize = 2;
+    const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last
+
+    type PlayerId = PlayerId;
+    type Action = Action;
+    type ActionIterator = ActionIterator;
+
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn player(&self) -> Self::PlayerId {
+        self.player
+    }
+
+    fn is_over(&self) -> bool {
+        self.board.is_gameover().is_some()
+    }
+
+    fn reward(&self, player_id: Self::PlayerId) -> f32 {
+        // assert!(self.is_over());
+
+        match self.winner() {
+            Some(winner) => {
+                if winner == player_id {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+            None => 0.0,
+        }
+    }
+    //list all possible actions.
+    fn iter_actions(&self) -> Self::ActionIterator {
+        FreeColumns {
+            height: self.height,
+            col: 0,
+        }
+    }
+
+    fn step(&mut self, action: &Self::Action) -> bool {
+        let col: usize = (*action).into();
+
+        // assert!(self.height[col] < HEIGHT as u8);
+
+        self.my_bb ^= 1 << (self.height[col] + (HEIGHT as u8) * (col as u8));
+        self.height[col] += 1;
+
+        std::mem::swap(&mut self.my_bb, &mut self.op_bb);
+        self.player = self.player.next();
+
+        self.is_over()
+    }
+
+    //Define all status of the game
+    const DIMS: &'static [i64] = &[1, 1, GAME_SIZE as i64, GAME_SIZE as i64];
+    type Features = [[[f32; GAME_SIZE]; GAME_SIZE]; 1];
+    fn features(&self) -> Self::Features {
+        let mut s = Self::Features::default();
+        for row in 0..GAME_SIZE {
+            for col in 0..GAME_SIZE {
+                let index = 1 << (row + GAME_SIZE * col);
+                if self.my_bb & index != 0 {
+                    s[0][row][col] = 1.0;
+                } else if self.op_bb & index != 0 {
+                    s[0][row][col] = -1.0;
+                } else {
+                    s[0][row][col] = -0.1;
+                }
+            }
+        }
+        for col in 0..GAME_SIZE {
+            let h = self.height[col] as usize;
+            if h < GAME_SIZE {
+                s[0][h][col] = 0.1;
+            }
+        }
+        s
+    }
+
+    fn print(&self) {
+        if self.is_over() {
+            println!("{:?} won", self.winner());
+        } else {
+            println!("{:?} to play", self.player);
+            //TODO print all avalible action?
+        }
+        self.board.display();
+    }
+}
 
 
 #[fixture]
