@@ -13,7 +13,7 @@ rstest = "0.15.0"
 > Unit test 可以幫助我們測試各式各樣edge case
 
 上述兩個問題其實沒有真正的答案, 甚至會在公司看到不同的作法. 但筆者私心覺得這兩個問題都是 **No**. 才會是一個好的unit test.
-unit test 需要的只是測試看看程式是不是照著我們的預期走, 而不是作為窮舉各式各樣狀態的測驗function.
+unit test 需要的只是測試看 看程式是不是照著我們的預期走, 而不是作為窮舉各式各樣狀態的測驗function.
 
 # Triple A 原則
 Arrange, Act, Assert.
