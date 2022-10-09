@@ -3,15 +3,25 @@ use std::ops::Not;
 
 use colored::*;
 use int_enum::IntEnum;
+use rand::{distributions::Distribution, Rng, thread_rng};
+use rand::prelude::{SeedableRng, StdRng};
+use rstest::*;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use rand::Rng;
-use rstest::*;
 use uuid::Uuid;
+
+use rand_distr::Dirichlet;
 use synthesis::game::*;
 
-const GAME_SIZE: usize = 3;
+use crate::config::{ActionSelection, Exploration, Fpu, MCTSConfig, PolicyNoise};
+use crate::game::HasTurnOrder;
 
+
+use super::*;
+
+const GAME_SIZE: usize = 3;
+const OCCUPY_STATUS_NUM: usize = 3;
+const SIZE_NUM: usize = 3;
 
 
 #[repr(usize)]
@@ -49,7 +59,7 @@ impl HasTurnOrder for PlayerId {
 #[repr(usize)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, EnumIter, PartialOrd, std::hash::Hash)]
 pub enum Size {
-    BIG = 2,
+    LARGE = 2,
     MID = 1,
     SMALL = 0,
 }
@@ -67,14 +77,14 @@ impl Token {
     pub fn to_string(&self) -> String {
         match self.color {
             PlayerId::RED => match self.size {
-                Size::BIG => "🔴".red().bold().to_string(),
-                Size::MID => "🔴".red().to_string(),
-                Size::SMALL => "🔴".red().dimmed().to_string(),
+                Size::LARGE => "L".red().bold().to_string(),
+                Size::MID => "M".red().to_string(),
+                Size::SMALL => "S".red().dimmed().to_string(),
             },
             PlayerId::GREEN => match self.size {
-                Size::BIG => "🟢".green().bold().to_string(),
-                Size::MID => "🟢".green().to_string(),
-                Size::SMALL => "🟢".green().dimmed().to_string(),
+                Size::LARGE => "L".green().bold().to_string(),
+                Size::MID => "M".green().to_string(),
+                Size::SMALL => "S".green().dimmed().to_string(),
             },
         }
     }
@@ -289,8 +299,7 @@ impl Player {
                         if self.is_valid_swap_from_board(board, x, y, x2, y2) {
                             actions.push(Action{
                                 action_type: ActionType::SWAP,
-                                player:self.color,
-                                from_inventory: None,
+                                from_inventory_size: None,
                                 from_xy: Some([x, y]),
                                 to_xy: Some([x2, y2]),
                             });
@@ -301,8 +310,7 @@ impl Player {
                     if self.is_valid_place_from_inventory(size, board, x, y) {
                         actions.push(Action{
                                 action_type: ActionType::FromInventory,
-                                player:self.color,
-                                from_inventory: Some(Token{color:self.color, size}),
+                                from_inventory_size: Some(size),
                                 from_xy: None,
                                 to_xy: Some([x, y]),
                             });
@@ -326,20 +334,18 @@ pub enum ActionType {
 #[derive(Clone, Copy, Debug, std::hash::Hash, PartialEq, Eq)]
 pub struct Action{
     pub action_type: ActionType,
-    pub player: PlayerId,
-    pub from_inventory: Option<Token>,
+    pub from_inventory_size: Option<Size>,
     pub from_xy: Option<[usize; 2]>,
     pub to_xy: Option<[usize; 2]>,
 }
 
 impl Action {
-    pub fn new(action_type: ActionType, player: PlayerId, from_inventory: Option<Token>, from_xy: Option<[usize; 2]>, to_xy: Option<[usize; 2]>) -> Action {
+    pub fn new(action_type: ActionType, from_inventory: Option<Size>, from_xy: Option<[usize; 2]>, to_xy: Option<[usize; 2]>) -> Action {
         match action_type {
             ActionType::FromInventory => {
                 Action {
                     action_type,
-                    player,
-                    from_inventory,
+                    from_inventory_size: from_inventory,
                     from_xy: None,
                     to_xy,
                 }
@@ -347,8 +353,7 @@ impl Action {
             ActionType::SWAP => {
                 Action {
                     action_type,
-                    player,
-                    from_inventory: None,
+                    from_inventory_size: None,
                     from_xy,
                     to_xy,
                 }
@@ -360,17 +365,43 @@ impl Action {
 // INV 3*9
 // [SWAP |INV]
 impl From<usize> for Action {
-    fn from(i: usize) -> Self {
+    fn from(i: usize) -> Action {
         const SWAP_RANGE:usize = (GAME_SIZE * GAME_SIZE) * (GAME_SIZE * GAME_SIZE);
         const INV_RANGE:usize = SWAP_RANGE + (GAME_SIZE * GAME_SIZE * 3);
-        let action_type = match i{
-            0..=SWAP_RANGE => ActionType::SWAP,
-            SWAP_RANGE..=INV_RANGE => ActionType::FromInventory,
-            _ => panic!("Action out of range"),
+        return match i{
+            0..=SWAP_RANGE => Self{
+                action_type: ActionType::SWAP,
+                from_inventory_size: None,
+                from_xy: Some([i / (GAME_SIZE * GAME_SIZE), (i / GAME_SIZE) % GAME_SIZE]),
+                to_xy: Some([i % GAME_SIZE, (i / (GAME_SIZE * GAME_SIZE * GAME_SIZE)) % GAME_SIZE]),
+            },
+            SWAP_RANGE..=INV_RANGE => Self{
+                action_type: ActionType::FromInventory,
+                // Color is not needed
+                from_inventory_size: Some(Size::from_int((i - SWAP_RANGE) % 3).unwrap()),
+                from_xy: None,
+                to_xy: Some([i % GAME_SIZE, (i / (GAME_SIZE * GAME_SIZE * 3)) % GAME_SIZE]),
+            },
+            _ => panic!("Invalid action index"),
         };
 
     }
 }
+
+impl Into<usize> for Action {
+        fn into(self) -> usize {
+            match self.action_type {
+                ActionType::SWAP => {
+                    self.from_xy.unwrap()[0] + self.from_xy.unwrap()[1] * GAME_SIZE + self.to_xy.unwrap()[0] * GAME_SIZE * GAME_SIZE + self.to_xy.unwrap()[1] * GAME_SIZE * GAME_SIZE * GAME_SIZE
+                }
+                ActionType::FromInventory => {
+                    self.from_inventory_size.unwrap().int_value() + self.to_xy.unwrap()[0] * 3 + self.to_xy.unwrap()[1] * 3 * GAME_SIZE + (GAME_SIZE * GAME_SIZE * 3)
+                }
+            }
+        }
+    }
+
+
 
 #[derive(Debug, std::hash::Hash, Clone, PartialEq, Eq)]
 pub struct Gobblet {
@@ -383,7 +414,8 @@ pub struct Gobblet {
 impl Gobblet {
     pub fn new() -> Gobblet {
         let mut rng = rand::thread_rng();
-        let round_flag = match rng.gen_range(0..2) {
+        let rnd_flag= rng.gen_range(0..9);
+        let round_flag = match  rnd_flag%2{
             0 => PlayerId::RED,
             1 => PlayerId::GREEN,
             _ => PlayerId::RED,
@@ -419,7 +451,7 @@ impl Gobblet {
                 println!("from inventory");
                 let size = Self::get_size();
                 let xy= Self::get_xy();
-                Some(Action::new(ActionType::FromInventory, self.round_flag, self.players[self.round_flag as usize].get_token(Size::from(size)), None, Some([xy[0], xy[1]])))
+                Some(Action::new(ActionType::FromInventory, Some(size), None, Some([xy[0], xy[1]])))
             }
             "b" => {
                 println!("from board");
@@ -431,7 +463,7 @@ impl Gobblet {
                 let xy = Self::get_xy();
                 let x2 = xy[0];
                 let y2 = xy[1];
-                Some(Action::new(ActionType::SWAP, self.round_flag, None, Some([x, y]), Some([x2, y2])))
+                Some(Action::new(ActionType::SWAP, None, Some([x, y]), Some([x2, y2])))
             }
             _ => {
                 println!("invalid input");
@@ -442,9 +474,9 @@ impl Gobblet {
     fn processing_action(&mut self, action: Action) {
         match action.action_type {
             ActionType::FromInventory => {
-                if let Some(token) = action.from_inventory {
-                    if self.players[action.player as usize].place_from_inventory(
-                        token.size,
+                if let Some(token) = action.from_inventory_size {
+                    if self.players[self.round_flag as usize].place_from_inventory(
+                        action.from_inventory_size.unwrap(),
                         &mut self.board,
                         action.to_xy.unwrap()[0],
                         action.to_xy.unwrap()[1],
@@ -456,7 +488,7 @@ impl Gobblet {
                 }
             }
             ActionType::SWAP => {
-                if self.players[action.player as usize].swap_token_from_board(
+                if self.players[self.round_flag as usize].swap_token_from_board(
                     &mut self.board,
                     action.from_xy.unwrap()[0],
                     action.from_xy.unwrap()[1],
@@ -494,7 +526,7 @@ impl Gobblet {
         match size {
             "s" | "S" | "0" => Size::SMALL,
             "m" | "M" | "1" => Size::MID,
-            "l" | "L" | "2" => Size::BIG,
+            "l" | "L" | "2" => Size::LARGE,
             _ => {
                 println!("invalid size");
                 Self::get_size()
@@ -515,40 +547,11 @@ impl Gobblet {
         let y = xy[1];
         [x, y]
     }
-
-    pub fn parse_action(&mut self, action: Action) -> bool {
-        match action.action_type {
-            ActionType::FromInventory => {
-                if let Some(token) = action.from_inventory {
-                    if self.players[action.player as usize].place_from_inventory(
-                        token.size,
-                        &mut self.board,
-                        action.to_xy.unwrap()[0],
-                        action.to_xy.unwrap()[1],
-                    ) {
-                        return true;
-                    }
-                }
-            }
-            ActionType::SWAP => {
-                if self.players[action.player as usize].swap_token_from_board(
-                    &mut self.board,
-                    action.from_xy.unwrap()[0],
-                    action.from_xy.unwrap()[1],
-                    action.to_xy.unwrap()[0],
-                    action.to_xy.unwrap()[1],
-                ) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
 }
 
 
 
-struct ActionIterator {
+pub struct ActionIterator {
     game: Gobblet,
     iter_count: usize,
 }
@@ -584,7 +587,7 @@ impl Game<GAME_SIZE> for Gobblet {
     }
 
     fn player(&self) -> Self::PlayerId {
-        self.player
+        self.player()
     }
 
     fn is_over(&self) -> bool {
@@ -612,50 +615,37 @@ impl Game<GAME_SIZE> for Gobblet {
     }
 
     fn step(&mut self, action: &Self::Action) -> bool {
-        let col: usize = (*action).into();
-
-        // assert!(self.height[col] < HEIGHT as u8);
-
-        self.my_bb ^= 1 << (self.height[col] + (HEIGHT as u8) * (col as u8));
-        self.height[col] += 1;
-
-        std::mem::swap(&mut self.my_bb, &mut self.op_bb);
-        self.player = self.player.next();
-
+        self.processing_action(action.clone());
         self.is_over()
     }
 
     //Define all status of the game
-    const DIMS: &'static [i64] = &[1, 1, GAME_SIZE as i64, GAME_SIZE as i64];
-    type Features = [[[f32; GAME_SIZE]; GAME_SIZE]; 1];
+    const DIMS: &'static [i64] = &[3,3,3,3];
+    type Features = [[[[f32; SIZE_NUM]; OCCUPY_STATUS_NUM]; GAME_SIZE]; GAME_SIZE];
     fn features(&self) -> Self::Features {
         let mut s = Self::Features::default();
-        for row in 0..GAME_SIZE {
-            for col in 0..GAME_SIZE {
-                let index = 1 << (row + GAME_SIZE * col);
-                if self.my_bb & index != 0 {
-                    s[0][row][col] = 1.0;
-                } else if self.op_bb & index != 0 {
-                    s[0][row][col] = -1.0;
-                } else {
-                    s[0][row][col] = -0.1;
-                }
+        for i in 0..GAME_SIZE {
+            for j in 0..GAME_SIZE {
+                let token = self.board.plate[i][j].get_outermost_token();
+                match token {
+                    Some(token) => {
+                        s[i][j][token.color as usize][token.size as usize] = 1.0;
+                    }
+                    None => {
+                        s[i][j][OCCUPY_STATUS_NUM-1] = [1.0; SIZE_NUM];
+                    }
+                };
             }
         }
-        for col in 0..GAME_SIZE {
-            let h = self.height[col] as usize;
-            if h < GAME_SIZE {
-                s[0][h][col] = 0.1;
-            }
-        }
+
         s
     }
 
     fn print(&self) {
         if self.is_over() {
-            println!("{:?} won", self.winner());
+            println!("{:?} won", self.board.is_gameover().unwrap());
         } else {
-            println!("{:?} to play", self.player);
+            println!("{:?} to play", self.player());
             //TODO print all avalible action?
         }
         self.board.display();
@@ -667,14 +657,14 @@ impl Game<GAME_SIZE> for Gobblet {
 fn end_board() -> Board {
     Board::new([
         [
-            Block::new(vec![Token::new(PlayerId::RED, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::RED, Size::LARGE)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::LARGE)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::LARGE)]),
         ],
         [
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::RED, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::LARGE)]),
+            Block::new(vec![Token::new(PlayerId::RED, Size::LARGE)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::LARGE)]),
         ],
         [
             Block::new(vec![Token::new(PlayerId::GREEN, Size::SMALL)]),
@@ -742,11 +732,11 @@ mod test_player {
     ) {
         let endb = &mut end_board;
         let emb = &mut empty_board;
-        assert!(empty_player.place_from_inventory(Size::BIG, emb, 0, 0) == false);
+        assert!(empty_player.place_from_inventory(Size::LARGE, emb, 0, 0) == false);
         empty_player.inventory[2] += 1;
-        assert!(empty_player.place_from_inventory(Size::BIG, emb, 0, 0) == true);
+        assert!(empty_player.place_from_inventory(Size::LARGE, emb, 0, 0) == true);
         empty_player.inventory[2] += 1;
-        assert!(empty_player.place_from_inventory(Size::BIG, endb, 0, 0) == false);
+        assert!(empty_player.place_from_inventory(Size::LARGE, endb, 0, 0) == false);
     }
 
     #[rstest]
@@ -761,7 +751,7 @@ mod test_player {
             empty_player.swap_token_from_board(emb, 0, 0, 1, 1) == false,
             "should be false from empty to empty"
         );
-        emb.plate[0][0].push_token(Token::new(PlayerId::RED, Size::BIG));
+        emb.plate[0][0].push_token(Token::new(PlayerId::RED, Size::LARGE));
         assert!(empty_player.swap_token_from_board(emb, 0, 0, 1, 1) == true);
         assert!(emb.plate[0][0].tokens.is_empty());
         assert!(emb.plate[1][1].tokens.is_empty() == false);
@@ -781,6 +771,13 @@ mod test_player {
         assert_eq!(actions_list.len(),0);
 
     }
+
+    #[rstest]
+    fn test_rl(){
+        let mut rng = StdRng::seed_from_u64(0);
+        let mut policy = policies { rng: &mut rng };
+    }
+
 }
 
 
