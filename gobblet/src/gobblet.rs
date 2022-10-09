@@ -592,9 +592,8 @@ impl Game<GAME_SIZE> for Gobblet {
     }
 
     fn reward(&self, player_id: Self::PlayerId) -> f32 {
-        // assert!(self.is_over());
 
-        match self.winner() {
+        match self.board.is_gameover() {
             Some(winner) => {
                 if winner == player_id {
                     1.0
@@ -605,11 +604,10 @@ impl Game<GAME_SIZE> for Gobblet {
             None => 0.0,
         }
     }
-    //list all possible actions.
     fn iter_actions(&self) -> Self::ActionIterator {
-        FreeColumns {
-            height: self.height,
-            col: 0,
+        ActionIterator {
+            game: self.clone(),
+            iter_count: 0,
         }
     }
 
