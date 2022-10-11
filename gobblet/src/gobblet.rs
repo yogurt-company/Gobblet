@@ -366,25 +366,26 @@ impl Action {
 // [SWAP |INV]
 impl From<usize> for Action {
     fn from(i: usize) -> Action {
-        const SWAP_RANGE:usize = (GAME_SIZE * GAME_SIZE) * (GAME_SIZE * GAME_SIZE);
-        const INV_RANGE:usize = SWAP_RANGE + (GAME_SIZE * GAME_SIZE * 3);
-        return match i{
-            0..=SWAP_RANGE => Self{
+        const SWAP_RANGE: usize = (GAME_SIZE * GAME_SIZE) * (GAME_SIZE * GAME_SIZE);
+        const INV_RANGE: usize = SWAP_RANGE + (GAME_SIZE * GAME_SIZE * 3);
+        return match i {
+            0..=SWAP_RANGE => Self {
                 action_type: ActionType::SWAP,
                 from_inventory_size: None,
                 from_xy: Some([i / (GAME_SIZE * GAME_SIZE), (i / GAME_SIZE) % GAME_SIZE]),
                 to_xy: Some([i % GAME_SIZE, (i / (GAME_SIZE * GAME_SIZE * GAME_SIZE)) % GAME_SIZE]),
             },
-            SWAP_RANGE..=INV_RANGE => Self{
-                action_type: ActionType::FromInventory,
-                // Color is not needed
-                from_inventory_size: Some(Size::from_int((i - SWAP_RANGE) % 3).unwrap()),
-                from_xy: None,
-                to_xy: Some([i % GAME_SIZE, (i / (GAME_SIZE * GAME_SIZE * 3)) % GAME_SIZE]),
+            SWAP_RANGE..=INV_RANGE => {
+                let rest_i = i - SWAP_RANGE;
+                Self {
+                    action_type: ActionType::FromInventory,
+                    from_inventory_size: Some(Size::from_int((rest_i - SWAP_RANGE) % 3).unwrap()),
+                    from_xy: None,
+                    to_xy: Some([rest_i % GAME_SIZE, (rest_i / (GAME_SIZE * GAME_SIZE * 3)) % GAME_SIZE]),
+                }
             },
             _ => panic!("Invalid action index"),
         };
-
     }
 }
 
