@@ -1,14 +1,46 @@
 <!DOCTYPE html>
-<html>
-  <head>
+<html xmlns="http://www.w3.org/1999/html">
+<head>
     <script>
-      WebAssembly.instantiateStreaming(fetch("wasm_lab/pkg/img_clf_bg.wasm"))
-        .then(wasmModule => {
-          const result = wasmModeult.instance.exports.add_one(3);
-          const text = document.createTextNode(result);
-          document.body.appendChild(text);
+        WebAssembly.instantiateStreaming(fetch("wasm_lab/pkg/img_clf_bg.wasm"))
+            .then(wasmModule => {
+                const result = wasmModeult.instance.exports.add_one(3);
+                const text = document.createTextNode(result);
+                document.body.appendChild(text);
+            });
+    </script>
+    <head>
+<body>
+<input type="file" id="image-input" accept="image/jpeg, image/png, image/jpg">
+<div id="display-image" style="  width: 400px;
+  height: 225px;
+  border: 1px solid black;
+  background-position: center;
+  background-size: cover;"></div>
+<script>
+    const image_input = document.querySelector("#image-input");
+    image_input.addEventListener("change", function () {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => {
+            const uploaded_image = reader.result;
+            document.querySelector("#display-image").style.backgroundImage = `url(${uploaded_image})`;
+        });
+        reader.readAsDataURL(this.files[0]);
+    });
+</script>
+    <input type="file" id="model_input" multiple/>
+    <div id="input"></div>
+    <script>
+        const model_input = document.querySelector("#model_input");
+        model_input.addEventListener("change", function () {
+            const reader = new FileReader();
+            reader.addEventListener("load", () => {
+                const uploaded_model = reader.result;
+                document.querySelector("#input").style.backgroundImage = `url(${uploaded_model})`;
+            });
+            reader.readAsDataURL(this.files[0]);
         });
     </script>
-  <head>
-  <body></body>
+
+</body>
 <html>
