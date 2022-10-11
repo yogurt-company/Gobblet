@@ -2,7 +2,7 @@
 <html>
   <head>
     <script>
-      WebAssembly.instantiateStreaming(fetch("utils.gc.wasm"))
+      WebAssembly.instantiateStreaming(fetch("wasm_lab/pkg/img_clf_bg.wasm"))
         .then(wasmModule => {
           const result = wasmModeult.instance.exports.add_one(3);
           const text = document.createTextNode(result);
