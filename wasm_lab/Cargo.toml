@@ -1,5 +1,5 @@
 [package]
-name = "playground"
+name = "img_clf"
 version = "0.1.0"
 edition = "2021"
 
@@ -21,3 +21,5 @@ features = [
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
+[lib]
+crate-type = ["cdylib"]
