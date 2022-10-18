@@ -2,7 +2,7 @@ use crate::gobblet::Gobblet;
 use synthesis::prelude::*;
 use tch::{self, nn, Tensor};
 
-pub struct Connect4Net {
+pub struct GobbletNet {
     l_1: nn::Linear,
     l_2: nn::Linear,
     l_3: nn::Linear,

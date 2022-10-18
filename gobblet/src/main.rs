@@ -1,13 +1,12 @@
 mod gobblet;
 mod policies;
-// mod policies;
 
-// For gaming
+use rand::{distributions::Distribution, thread_rng};
+use rand_distr::Normal;
 
-// fn main() {
-//     let mut game = gobblet::Gobblet::new();
-//     game.processing()
-// }
+use crate::gobblet::Gobblet;
+use crate::policies::*;
+use synthesis::prelude::*;
 
 
 fn learn<G: 'static + Game<N>, P: Policy<G, N> + NNPolicy<G, N>, const N: usize>(
@@ -94,5 +93,5 @@ fn learn<G: 'static + Game<N>, P: Policy<G, N> + NNPolicy<G, N>, const N: usize>
 }
 
 fn main() {
-    learn::<Connect4, Connect4Net, { Connect4::MAX_NUM_ACTIONS }>().unwrap()
+    learn::<Gobblet, GobbletNet, { Gobblet::MAX_NUM_ACTIONS }>().unwrap()
 }

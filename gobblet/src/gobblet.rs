@@ -1,3 +1,5 @@
+use synthesis::game::*;
+
 use std::io;
 use std::ops::Not;
 
@@ -5,19 +7,11 @@ use colored::*;
 use int_enum::IntEnum;
 use rand::{distributions::Distribution, Rng, thread_rng};
 use rand::prelude::{SeedableRng, StdRng};
-use rstest::*;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uuid::Uuid;
+use rstest::{fixture, rstest};
 
-use rand_distr::Dirichlet;
-use synthesis::game::*;
-
-use crate::config::{ActionSelection, Exploration, Fpu, MCTSConfig, PolicyNoise};
-use crate::game::HasTurnOrder;
-
-
-use super::*;
 
 const GAME_SIZE: usize = 3;
 const OCCUPY_STATUS_NUM: usize = 3;
@@ -772,13 +766,6 @@ mod test_player {
         assert_eq!(actions_list.len(),0);
 
     }
-
-    #[rstest]
-    fn test_rl(){
-        let mut rng = StdRng::seed_from_u64(0);
-        let mut policy = policies { rng: &mut rng };
-    }
-
 }
 
 
