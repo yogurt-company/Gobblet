@@ -14,9 +14,8 @@ use rstest::{fixture, rstest};
 
 
 const GAME_SIZE: usize = 3;
-const OCCUPY_STATUS_NUM: usize = 3;
-const SIZE_NUM: usize = 3;
-
+const MAX_LAYERS: usize = GAME_SIZE;
+const TOKEN_SIZE_TYPES: usize = GAME_SIZE;
 
 #[repr(usize)]
 #[derive(Clone, Copy, Debug, PartialEq, IntEnum, Eq, PartialOrd, Ord, std::hash::Hash)]
@@ -617,23 +616,21 @@ impl Game<GAME_SIZE> for Gobblet {
 
     //Define all status of the game
     const DIMS: &'static [i64] = &[3,3,3,3];
-    type Features = [[[[f32; SIZE_NUM]; OCCUPY_STATUS_NUM]; GAME_SIZE]; GAME_SIZE];
+    type Features = [[[[f32;TOKEN_SIZE_TYPES]; MAX_LAYERS]; GAME_SIZE]; GAME_SIZE];
     fn features(&self) -> Self::Features {
         let mut s = Self::Features::default();
         for i in 0..GAME_SIZE {
             for j in 0..GAME_SIZE {
-                let token = self.board.plate[i][j].get_outermost_token();
-                match token {
-                    Some(token) => {
-                        s[i][j][token.color as usize][token.size as usize] = 1.0;
+                for (layer, token) in self.board.plate[i][j].tokens.iter().rev().enumerate(){
+                    match token{
+                        Token{color:token_color,size:token_size} => s[i][j][layer][token_size.int_value()] =
+                            match token_color{
+                            PlayerId::RED => 1.0,
+                            PlayerId::GREEN => -1.0}
                     }
-                    None => {
-                        s[i][j][OCCUPY_STATUS_NUM-1] = [1.0; SIZE_NUM];
-                    }
-                };
+                }
             }
         }
-
         s
     }
 
@@ -713,6 +710,32 @@ mod test_board {
     fn test_display(mut end_board: Board) {
         end_board.display();
     }
+}
+
+#[cfg(test)]
+mod test_game {
+    use super::*;
+
+    #[rstest]
+    fn test_features(mut end_board: Board) {
+        let mut gobblet = Gobblet::new();
+        gobblet.board = end_board;
+        assert_eq!(gobblet.features(), [[[[0.0, 0.0, 1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[0.0, 0.0, -1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[0.0, 0.0, -1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]], [[[0.0, 0.0, -1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[0.0, 0.0, 1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[0.0, 0.0, -1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]], [[[-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]]]);
+    }
+    #[rstest]
+    fn test_print(mut end_board: Board) {
+        let mut gobblet = Gobblet::new();
+        gobblet.board = end_board;
+        gobblet.print();
+    }
+    // #[rstest]
+    // fn test_iter_actions(mut end_board: Board) {
+    //     let mut gobblet = Gobblet::new();
+    //     gobblet.board = end_board;
+    //     gobblet.print();
+    // }
+    //
+
 }
 
 #[cfg(test)]
