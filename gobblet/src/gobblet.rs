@@ -568,7 +568,7 @@ impl Iterator for ActionIterator {
     }
 }
 
-impl Game<GAME_SIZE> for Gobblet {
+impl Game<108> for Gobblet {
     const NAME: &'static str = "Gobblet";
     const NUM_PLAYERS: usize = 2;
     const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last

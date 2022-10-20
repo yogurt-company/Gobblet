@@ -17,7 +17,7 @@ impl NNPolicy<Gobblet, { Gobblet::MAX_NUM_ACTIONS }> for GobbletNet {
         assert!(state_dims.len() == 4);
         assert!(&state_dims == &[3, 3, 3, 3]);
         Self {
-            l_1: nn::linear(root / "l_1", 81, 128, Default::default()),
+            l_1: nn::linear(root / "l_1", 27, 128, Default::default()),
             l_2: nn::linear(root / "l_2", 128, 96, Default::default()),
             l_3: nn::linear(root / "l_3", 96, 64, Default::default()),
             l_4: nn::linear(root / "l_4", 64, 48, Default::default()),
