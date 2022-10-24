@@ -410,7 +410,7 @@ impl Gobblet {
         Gobblet {
             uid: Uuid::new_v4().to_string(),
             board: empty_board(),
-            round_flag,
+            round_flag: PlayerId::RED,
             players: [Player::new(PlayerId::RED), Player::new(PlayerId::GREEN)],
         }
     }
