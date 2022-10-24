@@ -1,11 +1,8 @@
 use synthesis::game::*;
-
-use std::io;
 use std::ops::Not;
 
 use colored::*;
 use int_enum::IntEnum;
-use rand::prelude::{SeedableRng, StdRng};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uuid::Uuid;
@@ -140,8 +137,7 @@ impl Board {
             .map(|t| t.unwrap().color)
             .fold([0, 0], |acc, c| match c {
                 PlayerId::RED => [acc[0] + 1, acc[1]],
-                PlayerId::GREEN => [acc[0], acc[1] + 1],
-                _ => acc,
+                PlayerId::GREEN => [acc[0], acc[1] + 1]
             });
         match result {
             [3, 0] => Some(PlayerId::RED),
@@ -415,49 +411,49 @@ impl Gobblet {
         }
     }
 
-    pub fn processing(&mut self) {
-        while self.board.is_gameover().is_none() {
-            self.board.display();
-            let action = self.io_input();
-            match action {
-                Some(action) => {
-                    self.processing_action(action);
-                }
-                None => {
-                    println!("Invalid Action, Need to retry");
-                }
-            }
-        }
-        println!("end");
-    }
+    // pub fn processing(&mut self) {
+    //     while self.board.is_gameover().is_none() {
+    //         self.board.display();
+    //         let action = self.io_input();
+    //         match action {
+    //             Some(action) => {
+    //                 self.processing_action(action);
+    //             }
+    //             None => {
+    //                 println!("Invalid Action, Need to retry");
+    //             }
+    //         }
+    //     }
+    //     println!("end");
+    // }
     // keyboard input to trigger player action
-    pub fn io_input(&mut self) -> Option<Action>{
-        let option = self.get_option();
-        match option {
-            "a" => {
-                println!("from inventory");
-                let size = Self::get_size();
-                let xy= Self::get_xy();
-                Some(Action::new(ActionType::FromInventory, Some(size), None, Some([xy[0], xy[1]])))
-            }
-            "b" => {
-                println!("from board");
-                println!("from x y");
-                let xy = Self::get_xy();
-                let x = xy[0];
-                let y = xy[1];
-                println!("to x y");
-                let xy = Self::get_xy();
-                let x2 = xy[0];
-                let y2 = xy[1];
-                Some(Action::new(ActionType::SWAP, None, Some([x, y]), Some([x2, y2])))
-            }
-            _ => {
-                println!("invalid input");
-                None
-            }
-        }
-    }
+    // pub fn io_input(&mut self) -> Option<Action>{
+    //     let option = self.get_option();
+    //     match option {
+    //         "a" => {
+    //             println!("from inventory");
+    //             let size = Self::get_size();
+    //             let xy= Self::get_xy();
+    //             Some(Action::new(ActionType::FromInventory, Some(size), None, Some([xy[0], xy[1]])))
+    //         }
+    //         "b" => {
+    //             println!("from board");
+    //             println!("from x y");
+    //             let xy = Self::get_xy();
+    //             let x = xy[0];
+    //             let y = xy[1];
+    //             println!("to x y");
+    //             let xy = Self::get_xy();
+    //             let x2 = xy[0];
+    //             let y2 = xy[1];
+    //             Some(Action::new(ActionType::SWAP, None, Some([x, y]), Some([x2, y2])))
+    //         }
+    //         _ => {
+    //             println!("invalid input");
+    //             None
+    //         }
+    //     }
+    // }
     fn processing_action(&mut self, action: Action) {
         match action.action_type {
             ActionType::FromInventory => {
@@ -490,50 +486,50 @@ impl Gobblet {
             }
         }
     }
-    fn get_option(&self) -> &str {
-        println!(
-            "Player{:?}  a: take from invetory, b:board 2 board: ",
-            self.round_flag
-        );
-        let mut in_str = String::new();
-        io::stdin().read_line(&mut in_str).unwrap();
-        let option = in_str.trim();
-        match option {
-            "a" => "a",
-            "b" => "b",
-            _ => self.get_option()
-        }
-    }
-
-    fn get_size() -> Size {
-        println!("size: 0:small, 1:medium, 2:large");
-        let mut in_str = String::new();
-        io::stdin().read_line(&mut in_str).unwrap();
-        let size = in_str.trim();
-        match size {
-            "s" | "S" | "0" => Size::SMALL,
-            "m" | "M" | "1" => Size::MID,
-            "l" | "L" | "2" => Size::LARGE,
-            _ => {
-                println!("invalid size");
-                Self::get_size()
-            }
-        }
-    }
-
-    fn get_xy() -> [usize; 2] {
-        println!("Enter the coordinate of the board");
-        let mut in_str = String::new();
-        io::stdin().read_line(&mut in_str).unwrap();
-        let xy: Vec<usize> = in_str
-            .trim()
-            .split(&[' ',','][..])
-            .map(|s| s.parse().unwrap())
-            .collect();
-        let x = xy[0];
-        let y = xy[1];
-        [x, y]
-    }
+    // fn get_option(&self) -> &str {
+    //     println!(
+    //         "Player{:?}  a: take from invetory, b:board 2 board: ",
+    //         self.round_flag
+    //     );
+    //     let mut in_str = String::new();
+    //     io::stdin().read_line(&mut in_str).unwrap();
+    //     let option = in_str.trim();
+    //     match option {
+    //         "a" => "a",
+    //         "b" => "b",
+    //         _ => self.get_option()
+    //     }
+    // }
+    //
+    // fn get_size() -> Size {
+    //     println!("size: 0:small, 1:medium, 2:large");
+    //     let mut in_str = String::new();
+    //     io::stdin().read_line(&mut in_str).unwrap();
+    //     let size = in_str.trim();
+    //     match size {
+    //         "s" | "S" | "0" => Size::SMALL,
+    //         "m" | "M" | "1" => Size::MID,
+    //         "l" | "L" | "2" => Size::LARGE,
+    //         _ => {
+    //             println!("invalid size");
+    //             Self::get_size()
+    //         }
+    //     }
+    // }
+    //
+    // fn get_xy() -> [usize; 2] {
+    //     println!("Enter the coordinate of the board");
+    //     let mut in_str = String::new();
+    //     io::stdin().read_line(&mut in_str).unwrap();
+    //     let xy: Vec<usize> = in_str
+    //         .trim()
+    //         .split(&[' ',','][..])
+    //         .map(|s| s.parse().unwrap())
+    //         .collect();
+    //     let x = xy[0];
+    //     let y = xy[1];
+    //     [x, y]
+    // }
 }
 
 
@@ -574,7 +570,7 @@ impl Game<108> for Gobblet {
     }
 
     fn player(&self) -> Self::PlayerId {
-        self.player()
+        self.round_flag
     }
 
     fn is_over(&self) -> bool {
@@ -720,13 +716,14 @@ mod test_game {
         gobblet.board = end_board;
         gobblet.print();
     }
-    // #[rstest]
-    // fn test_iter_actions(mut end_board: Board) {
-    //     let mut gobblet = Gobblet::new();
-    //     gobblet.board = end_board;
-    //     gobblet.print();
-    // }
-    //
+
+    #[rstest]
+    fn test_player() {
+        let mut gobblet = Gobblet::new();
+        let player = gobblet.player();
+        assert_eq!(player, PlayerId::RED);
+    }
+
 
 }
 

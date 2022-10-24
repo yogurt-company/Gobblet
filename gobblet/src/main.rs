@@ -27,7 +27,8 @@ fn learn<G: 'static + Game<N>, P: Policy<G, N> + NNPolicy<G, N>, const N: usize>
         games_per_train: 1000, // number of new games to add to replay buffer per training iteration
 
         rollout_cfg: RolloutConfig {
-            num_workers: 6,                     // number of processes to use for running games
+            //todo must increase
+            num_workers: 1,                     // number of processes to use for running games
             num_explores: 1600,                 // number of MCTS explores per turn
             random_actions_until: 1,            // last turn number to select random actions
             sample_actions_until: 30,           // last turn number to sample actions
