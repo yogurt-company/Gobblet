@@ -5,7 +5,6 @@ use std::ops::Not;
 
 use colored::*;
 use int_enum::IntEnum;
-use rand::{distributions::Distribution, Rng, thread_rng};
 use rand::prelude::{SeedableRng, StdRng};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -408,18 +407,11 @@ pub struct Gobblet {
 
 impl Gobblet {
     pub fn new() -> Gobblet {
-        let mut rng = rand::thread_rng();
-        let rnd_flag= rng.gen_range(0..9);
-        let round_flag = match  rnd_flag%2{
-            0 => PlayerId::RED,
-            1 => PlayerId::GREEN,
-            _ => PlayerId::RED,
-        };
         Gobblet {
             uid: Uuid::new_v4().to_string(),
             board: empty_board(),
             round_flag,
-            players: [Player::new(round_flag), Player::new(!round_flag)],
+            players: [Player::new(PlayerId::RED), Player::new(PlayerId::GREEN)],
         }
     }
 
