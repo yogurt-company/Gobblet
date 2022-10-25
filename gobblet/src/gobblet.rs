@@ -543,7 +543,7 @@ pub struct ActionIterator {
 
 impl Iterator for ActionIterator {
     type Item = Action;
-
+    // todo bug is here, iterall valid is not correct
     fn next(&mut self) -> Option<Self::Item> {
         let valid_actions = self.game.players[self.game.round_flag as usize].list_all_valid_actions(&self.game.board);
         if self.iter_count < valid_actions.len() {

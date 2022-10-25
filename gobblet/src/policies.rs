@@ -18,10 +18,10 @@ impl NNPolicy<Gobblet, { Gobblet::MAX_NUM_ACTIONS }> for GobbletNet {
         assert!(&state_dims == &[3, 3, 3, 3]);
         Self {
             l_1: nn::linear(root / "l_1", 27, 128, Default::default()),
-            l_2: nn::linear(root / "l_2", 128, 96, Default::default()),
-            l_3: nn::linear(root / "l_3", 96, 64, Default::default()),
-            l_4: nn::linear(root / "l_4", 64, 48, Default::default()),
-            l_5: nn::linear(root / "l_5", 48, 12, Default::default()),
+            l_2: nn::linear(root / "l_2", 128, 168, Default::default()),
+            l_3: nn::linear(root / "l_3", 168, 256, Default::default()),
+            l_4: nn::linear(root / "l_4", 256, 140,Default::default()),
+            l_5: nn::linear(root / "l_5", 140, 111, Default::default()),
         }
     }
 
@@ -37,7 +37,7 @@ impl NNPolicy<Gobblet, { Gobblet::MAX_NUM_ACTIONS }> for GobbletNet {
             .apply(&self.l_4)
             .relu()
             .apply(&self.l_5);
-        let mut ts = xs.split_with_sizes(&[9, 3], -1);
+        let mut ts = xs.split_with_sizes(&[108, 3], -1);
         let outcome_logits = ts.pop().unwrap();
         let policy_logits = ts.pop().unwrap();
         (policy_logits, outcome_logits)
@@ -48,11 +48,11 @@ impl Policy<Gobblet, { Gobblet::MAX_NUM_ACTIONS }> for GobbletNet {
     fn eval(&mut self, env: &Gobblet) -> ([f32; Gobblet::MAX_NUM_ACTIONS], [f32; 3]) {
         let xs = env.features();
         let t = tensor(&xs, Gobblet::DIMS, tch::Kind::Float);
-        let (logits, value) = self.forward(&t);
+        let (policy_logits, outcome_logits) = self.forward(&t);
         let mut policy = [0.0f32; Gobblet::MAX_NUM_ACTIONS];
-        logits.copy_data(&mut policy, Gobblet::MAX_NUM_ACTIONS);
+        policy_logits.copy_data(&mut policy, Gobblet::MAX_NUM_ACTIONS);
         let mut outcomes = [0.0f32; 3];
-        value
+        outcome_logits
             .softmax(-1, tch::Kind::Float)
             .copy_data(&mut outcomes, 3);
         (policy, outcomes)
