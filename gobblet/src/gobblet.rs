@@ -12,6 +12,7 @@ use rstest::{fixture, rstest};
 const GAME_SIZE: usize = 3;
 const MAX_LAYERS: usize = GAME_SIZE;
 const TOKEN_SIZE_TYPES: usize = GAME_SIZE;
+const POSSIBLE_ACTION_NUMBER: usize = (GAME_SIZE * GAME_SIZE) * (GAME_SIZE * GAME_SIZE) + (GAME_SIZE * GAME_SIZE * 3);
 
 #[repr(usize)]
 #[derive(Clone, Copy, Debug, PartialEq, IntEnum, Eq, PartialOrd, Ord, std::hash::Hash)]
@@ -252,6 +253,9 @@ impl Player {
     ) -> bool {
         if x < GAME_SIZE && y < GAME_SIZE {
             if board.plate[y][x].get_outermost_token().is_some() {
+                if board.plate[y][x].get_outermost_token().unwrap().color != self.color {
+                        return false
+                    }
                 if board.plate[y2][x2].is_stackable(board.plate[y][x].get_outermost_token().unwrap()) {
                     return true;
                 }
@@ -556,7 +560,7 @@ impl Iterator for ActionIterator {
     }
 }
 
-impl Game<108> for Gobblet {
+impl Game<POSSIBLE_ACTION_NUMBER> for Gobblet {
     const NAME: &'static str = "Gobblet";
     const NUM_PLAYERS: usize = 2;
     const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last
@@ -656,6 +660,42 @@ fn end_board() -> Board {
 }
 
 #[fixture]
+fn intermediate_board() -> Board {
+    Board::new([
+        [
+            Block::new(vec![Token::new(PlayerId::RED, Size::LARGE)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::MID)]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::LARGE)]),
+        ],
+        [
+            Block::new(vec![]),
+            Block::new(vec![]),
+            Block::new(vec![]),
+        ],
+        [
+            Block::new(vec![]),
+            Block::new(vec![Token::new(PlayerId::GREEN, Size::SMALL), Token::new(PlayerId::RED, Size::MID)]),
+            Block::new(vec![Token::new(PlayerId::RED, Size::SMALL)]),
+        ],
+    ])
+}
+
+#[fixture]
+fn intermediate_red_player() -> Player {
+    let mut p = Player::new(PlayerId::RED);
+    p.inventory = [1, 1, 1];
+    p
+}
+
+#[fixture]
+fn intermediate_green_player() -> Player {
+    let mut p = Player::new(PlayerId::GREEN);
+    p.inventory = [1, 1, 1];
+    p
+}
+
+
+#[fixture]
 fn empty_board() -> Board {
     Board::new([
         [Block::new(vec![]), Block::new(vec![]), Block::new(vec![])],
@@ -695,8 +735,13 @@ mod test_board {
     }
 
     #[rstest]
-    fn test_display(mut end_board: Board) {
-        end_board.display();
+    fn test_display(mut intermediate_board: Board) {
+        intermediate_board.display();
+    }
+
+    #[rstest]
+    fn test_board_location(mut intermediate_board: Board) {
+        println!("{:?}", intermediate_board.plate[2][1]);
     }
 }
 
@@ -748,7 +793,7 @@ mod test_player {
     }
 
     #[rstest]
-    fn test_place_from_board(
+    fn test_swap(
         mut empty_player: Player,
         mut empty_board: Board,
         mut end_board: Board,
@@ -770,6 +815,9 @@ mod test_player {
         mut empty_player: Player,
         mut full_player: Player,
         mut empty_board: Board,
+        mut end_board: Board,
+        mut intermediate_board: Board,
+        mut intermediate_red_player: Player,
     ){
         let emb = &mut empty_board;
         const ALL_POSSIBLE_FROM_INVENTOR_ACTIONS:usize = GAME_SIZE*GAME_SIZE*3;
@@ -777,6 +825,9 @@ mod test_player {
         assert_eq!(actions_list.len(),ALL_POSSIBLE_FROM_INVENTOR_ACTIONS);
         let actions_list = empty_player.list_all_valid_actions(emb);
         assert_eq!(actions_list.len(),0);
+        let actions_list = intermediate_red_player.list_all_valid_actions(&intermediate_board);
+        println!("{:?}", actions_list);
+        assert_eq!(actions_list.len(), 26);
 
     }
     #[rstest]
