@@ -298,14 +298,18 @@ impl Player {
                         }
                     }
                 }
-                for size in Size::iter() {
+            }
+        }
+        for size in Size::iter() {
+            for y in 0..GAME_SIZE {
+                for x in 0..GAME_SIZE {
                     if self.is_valid_place_from_inventory(size, board, x, y) {
-                        actions.push(Action{
-                                action_type: ActionType::FromInventory,
-                                from_inventory_size: Some(size),
-                                from_xy: None,
-                                to_xy: Some([x, y]),
-                            });
+                        actions.push(Action {
+                            action_type: ActionType::FromInventory,
+                            from_inventory_size: Some(size),
+                            from_xy: None,
+                            to_xy: Some([x, y]),
+                        });
                     }
                 }
             }
@@ -465,12 +469,13 @@ impl Gobblet {
                     if self.players[self.round_flag as usize].place_from_inventory(
                         action.from_inventory_size.unwrap(),
                         &mut self.board,
+                        //todo make sure x,y is on the same page.
                         action.to_xy.unwrap()[0],
                         action.to_xy.unwrap()[1],
                     ) {
                         self.round_flag = !self.round_flag;
                     } else {
-                        println!("invalid action");
+                        println!("`invalid action");
                     }
                 }
             }
