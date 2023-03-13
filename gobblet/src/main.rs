@@ -14,7 +14,7 @@ fn learn<G: 'static + Game<N>, P: Policy<G, N> + NNPolicy<G, N>, const N: usize>
     let cfg = LearningConfig {
         seed: 0,                              // seed for rng & torch
         logs: train_dir("./_logs", G::NAME)?, // log directory
-        num_iterations: 200,                  // number of training iterations to run
+        num_iterations: 1,                  // number of training iterations to run
 
         lr_schedule: vec![(1, 1e-3), (20, 5e-4), (40, 1e-4), (60, 5e-5), (80, 1e-5)], // schedule for lr - first item in tuple is iteration #
         weight_decay: 1e-6, // L2 regularization for Adam optimizer
