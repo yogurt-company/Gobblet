@@ -12,7 +12,6 @@ rand = "0.8.5"
 boolenum = "0.1.0"
 colored = "2.0.0"
 ndarray = "0.15.6"
-tensorflow = "0.19.1"
 [dependencies.uuid]
 version = "1.1.2"
 features = [
