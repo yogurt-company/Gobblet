@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 ndarray = "0.15.6"
 anyhow = "1"
-tch = "0.8.0"
+tch = "0.10.3"
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen = "0.2"
 [dependencies.zip]

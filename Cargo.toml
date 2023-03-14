@@ -5,7 +5,6 @@ members = [
     "../Gobblet/synthesis",
     "../Gobblet/export",
     "../Gobblet/study-connect4",
-    "../Gobblet/playground",
     "../Gobblet/gobblet",
     "../Gobblet/wasm_lab",
 ]

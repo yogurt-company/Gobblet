@@ -474,8 +474,6 @@ impl Gobblet {
                         action.to_xy.unwrap()[1],
                     ) {
                         self.round_flag = !self.round_flag;
-                    } else {
-                        println!("`invalid action");
                     }
                 }
             }
@@ -488,9 +486,6 @@ impl Gobblet {
                     action.to_xy.unwrap()[1],
                 ) {
                     self.round_flag = !self.round_flag;
-                }
-                else {
-                    println!("invalid action");
                 }
             }
         }

@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 base65536 = { path = "../base65536" }
 synthesis = { path = "../synthesis" }
-tch = "0.8.0"
+tch = "0.10.3"
