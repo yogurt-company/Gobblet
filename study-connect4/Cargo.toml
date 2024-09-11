@@ -9,6 +9,6 @@ edition = "2018"
 [dependencies]
 synthesis = { path = "../synthesis" }
 slimnn = { path = "../slimnn" }
-tch = "0.8.0"
+tch = "0.17.0"
 rand = "0.8.3"
 rand_distr = "0.4.0"

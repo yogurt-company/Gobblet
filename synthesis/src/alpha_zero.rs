@@ -85,8 +85,8 @@ pub fn alpha_zero<G: 'static + Game<N>, P: Policy<G, N> + NNPolicy<G, N>, const 
                 let loss = cfg.policy_weight * &pi_loss + cfg.value_weight * &v_loss;
                 opt.backward_step(&loss);
 
-                epoch_loss[0] += f32::from(&pi_loss);
-                epoch_loss[1] += f32::from(&v_loss);
+                epoch_loss[0] += pi_loss.double_value(&[]) as f32;
+                epoch_loss[1] += v_loss.double_value(&[]) as f32;
             }
             epoch_loss[0] *= (cfg.batch_size as f32) / (dims[0] as f32);
             epoch_loss[1] *= (cfg.batch_size as f32) / (dims[0] as f32);
