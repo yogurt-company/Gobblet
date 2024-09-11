@@ -431,9 +431,11 @@ dependencies = [
  "colored",
  "int-enum",
  "rand",
+ "rand_distr",
  "rstest",
  "slimnn",
  "synthesis",
+ "tch",
  "uuid",
 ]
 

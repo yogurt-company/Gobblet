@@ -11,8 +11,6 @@ use synthesis::game::*;
 const GAME_SIZE: usize = 3;
 
 
-
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlayerId {
     RED,
@@ -126,7 +124,6 @@ impl Board {
     pub fn new(blocks: [[Block; 3]; 3]) -> Board {
         Board { plate: blocks }
     }
-    // FP寫的
     fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<PlayerId> {
         let result = pattern
             .iter()
@@ -288,7 +285,7 @@ pub enum ActionType {
 
 
 #[derive(Clone, Copy, Debug)]
-pub struct Action{
+pub struct Action {
     pub action_type: ActionType,
     pub player: PlayerId,
     pub from_inventory: Option<Token>,
@@ -322,7 +319,6 @@ impl Action {
 }
 
 
-
 pub struct Gobblet {
     uid: String,
     board: Board,
@@ -330,8 +326,12 @@ pub struct Gobblet {
     players: [Player; 2],
 }
 
-impl Gobblet {
-    pub fn new() -> Gobblet {
+impl Game<GAME_SIZE> for Gobblet {
+    const NAME: &'static str = "Gobblet";
+    const NUM_PLAYERS: usize = 2;
+    // todo not for sure how long can it be.
+    const MAX_TURNS: usize = 72;
+    fn new() -> Gobblet {
         let mut rng = rand::thread_rng();
         let round_flag = match rng.gen_range(0..2) {
             0 => PlayerId::RED,
@@ -346,7 +346,7 @@ impl Gobblet {
         }
     }
 
-    pub fn processing(&mut self) {
+    fn processing(&mut self) {
         while self.board.is_gameover().is_none() {
             self.board.display();
             let action = self.io_input();
@@ -362,13 +362,13 @@ impl Gobblet {
         println!("end");
     }
     // keyboard input to trigger player action
-    pub fn io_input(&mut self) -> Option<Action>{
+    pub fn io_input(&mut self) -> Option<Action> {
         let option = self.get_option();
         match option {
             "a" => {
                 println!("from inventory");
                 let size = Self::get_size();
-                let xy= Self::get_xy();
+                let xy = Self::get_xy();
                 Some(Action::new(ActionType::FromInventory, self.round_flag, self.players[self.round_flag as usize].get_token(Size::from(size)), None, Some([xy[0], xy[1]])))
             }
             "b" => {
@@ -389,7 +389,7 @@ impl Gobblet {
             }
         }
     }
-    fn processing_action(&mut self, action: Action) {
+    fn step(&mut self, action: Action) {
         match action.action_type {
             ActionType::FromInventory => {
                 if let Some(token) = action.from_inventory {
@@ -414,8 +414,7 @@ impl Gobblet {
                     action.to_xy.unwrap()[1],
                 ) {
                     self.round_flag = !self.round_flag;
-                }
-                else {
+                } else {
                     println!("invalid action");
                 }
             }
@@ -458,7 +457,7 @@ impl Gobblet {
         io::stdin().read_line(&mut in_str).unwrap();
         let xy: Vec<usize> = in_str
             .trim()
-            .split(&[' ',','][..])
+            .split(&[' ', ','][..])
             .map(|s| s.parse().unwrap())
             .collect();
         let x = xy[0];
@@ -495,125 +494,6 @@ impl Gobblet {
         false
     }
 }
-
-
-// impl Game<GAME_SIZE> for Gobblet {
-//     const NAME: &'static str = "Gobblet";
-//     const NUM_PLAYERS: usize = 2;
-//     const MAX_TURNS: usize = 60;//TODO not for sure how long the game will last
-//
-//     type PlayerId = PlayerId;
-//     type Action = Column;
-//     type ActionIterator = FreeColumns;
-//
-//     fn new() -> Self {
-//         Self::new()
-//     }
-//
-//     fn player(&self) -> Self::PlayerId {
-//         self.player
-//     }
-//
-//     fn is_over(&self) -> bool {
-//         self.board.is_gameover().is_some()
-//     }
-//
-//     fn reward(&self, player_id: Self::PlayerId) -> f32 {
-//         // assert!(self.is_over());
-//
-//         match self.winner() {
-//             Some(winner) => {
-//                 if winner == player_id {
-//                     1.0
-//                 } else {
-//                     -1.0
-//                 }
-//             }
-//             None => 0.0,
-//         }
-//     }
-//     //list all possible actions.
-//     fn iter_actions(&self) -> Self::ActionIterator {
-//         FreeColumns {
-//             height: self.height,
-//             col: 0,
-//         }
-//     }
-//
-//     fn step(&mut self, action: &Self::Action) -> bool {
-//         let col: usize = (*action).into();
-//
-//         // assert!(self.height[col] < HEIGHT as u8);
-//
-//         self.my_bb ^= 1 << (self.height[col] + (HEIGHT as u8) * (col as u8));
-//         self.height[col] += 1;
-//
-//         std::mem::swap(&mut self.my_bb, &mut self.op_bb);
-//         self.player = self.player.next();
-//
-//         self.is_over()
-//     }
-//
-//     const DIMS: &'static [i64] = &[1, 1, HEIGHT as i64, GAME_SIZE as i64];
-//     type Features = [[[f32; GAME_SIZE]; HEIGHT]; 1];
-//     fn features(&self) -> Self::Features {
-//         let mut s = Self::Features::default();
-//         for row in 0..HEIGHT {
-//             for col in 0..GAME_SIZE {
-//                 let index = 1 << (row + HEIGHT * col);
-//                 if self.my_bb & index != 0 {
-//                     s[0][row][col] = 1.0;
-//                 } else if self.op_bb & index != 0 {
-//                     s[0][row][col] = -1.0;
-//                 } else {
-//                     s[0][row][col] = -0.1;
-//                 }
-//             }
-//         }
-//         for col in 0..GAME_SIZE {
-//             let h = self.height[col] as usize;
-//             if h < HEIGHT {
-//                 s[0][h][col] = 0.1;
-//             }
-//         }
-//         s
-//     }
-//
-//     fn print(&self) {
-//         if self.is_over() {
-//             println!("{:?} won", self.winner());
-//         } else {
-//             println!("{:?} to play", self.player);
-//             println!(
-//                 "Available Actions: {:?}",
-//                 self.iter_actions().collect::<Vec<Column>>()
-//             );
-//         }
-//
-//         let (my_char, op_char) = match self.player {
-//             PlayerId::Black => ("B", "r"),
-//             PlayerId::Red => ("r", "B"),
-//         };
-//
-//         for row in (0..HEIGHT).rev() {
-//             for col in 0..GAME_SIZE {
-//                 let index = 1 << (row + HEIGHT * col);
-//                 print!(
-//                     "{} ",
-//                     if self.my_bb & index != 0 {
-//                         my_char
-//                     } else if self.op_bb & index != 0 {
-//                         op_char
-//                     } else {
-//                         "."
-//                     }
-//                 );
-//             }
-//             println!();
-//         }
-//     }
-// }
-
 
 #[fixture]
 fn end_board() -> Board {
