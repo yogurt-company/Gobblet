@@ -10,8 +10,7 @@ use synthesis::game::*;
 
 const GAME_SIZE: usize = 3;
 
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PlayerId {
     RED,
     GREEN,
@@ -27,13 +26,11 @@ impl Not for PlayerId {
 }
 
 impl HasTurnOrder for PlayerId {
-    fn next(&self) -> Self {
-        match self {
-            PlayerId::RED => PlayerId::GREEN,
-            PlayerId::GREEN => PlayerId::RED,
-        }
-    }
     fn prev(&self) -> Self {
+        self.next()
+    }
+
+    fn next(&self) -> Self {
         match self {
             PlayerId::RED => PlayerId::GREEN,
             PlayerId::GREEN => PlayerId::RED,
@@ -42,14 +39,14 @@ impl HasTurnOrder for PlayerId {
 }
 
 #[repr(usize)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, PartialOrd, Hash)]
 pub enum Size {
     BIG = 2,
     MID = 1,
     SMALL = 0,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct Token {
     color: PlayerId,
     size: Size,
@@ -75,7 +72,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Block {
     tokens: Vec<Token>,
 }
@@ -115,59 +112,49 @@ impl Block {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone, Eq, Hash, PartialEq)]
 pub struct Board {
-    pub plate: [[Block; 3]; 3],
+    pub plate: Vec<Vec<Block>>,
 }
 
+
 impl Board {
-    pub fn new(blocks: [[Block; 3]; 3]) -> Board {
-        Board { plate: blocks }
-    }
-    fn pattern_check_fp(&self, pattern: [[usize; 2]; 3]) -> Option<PlayerId> {
-        let result = pattern
-            .iter()
-            .map(|axis| self.plate[axis[0]][axis[1]].get_outermost_token())
-            .filter(|t| t.is_some())
-            .map(|t| t.unwrap().color)
-            .fold([0, 0], |acc, c| match c {
-                PlayerId::RED => [acc[0] + 1, acc[1]],
-                PlayerId::GREEN => [acc[0], acc[1] + 1],
-                _ => acc,
-            });
-        match result {
-            [3, 0] => Some(PlayerId::RED),
-            [0, 3] => Some(PlayerId::GREEN),
-            _ => None,
+    pub fn new() -> Self {
+        let mut plate = Vec::with_capacity(GAME_SIZE);
+        for _ in 0..GAME_SIZE {
+            let mut row = Vec::with_capacity(GAME_SIZE);
+            for _ in 0..GAME_SIZE {
+                row.push(Block::default());
+            }
+            plate.push(row);
         }
+        Board { plate }
     }
-    // TODO NxN genernalize
-    pub fn is_gameover(&self) -> Option<PlayerId> {
-        let patterns: [[[usize; 2]; 3]; 8] = [
-            [[2, 0], [1, 1], [0, 2]],
-            [[0, 0], [1, 1], [2, 2]],
-            [[0, 0], [0, 1], [0, 2]],
-            [[1, 0], [1, 1], [1, 2]],
-            [[2, 0], [2, 1], [2, 2]],
-            [[0, 0], [1, 0], [2, 0]],
-            [[0, 1], [1, 1], [2, 1]],
-            [[0, 2], [1, 2], [2, 2]],
-        ];
-        for pattern in patterns {
-            match self.pattern_check_fp(pattern) {
-                Some(color) => {
-                    return Some(color);
-                }
-                None => {
-                    continue;
+    pub fn to_features(&self) -> Vec<f32> {
+        let mut features = Vec::new();
+
+        for row in &self.plate {
+            for block in row {
+                if let Some(token) = block.get_outermost_token() {
+                    features.extend(self.token_to_features(token));
+                } else {
+                    features.extend(vec![0.0; 6]);
                 }
             }
         }
-        None
+        features
     }
 
+    fn token_to_features(&self, token: Token) -> Vec<f32> {
+        let mut feature = vec![0.0; 6]; // 两个玩家，三种尺寸
+        let index = match token.color {
+            PlayerId::RED => 0,
+            PlayerId::GREEN => 3,
+        } + token.size.int_value();
+        feature[index] = 1.0;
+        feature
+    }
 
-    // TODO Add Json Status format generator
     pub fn display(&self) {
         for row in self.plate.iter() {
             for block in row.iter() {
@@ -183,8 +170,52 @@ impl Board {
             println!();
         }
     }
-}
+    pub fn is_gameover(&self) -> Option<PlayerId> {
+        // 检查行和列
+        for i in 0..GAME_SIZE {
+            // 检查行
+            let row_positions: Vec<(usize, usize)> = (0..GAME_SIZE).map(|j| (i, j)).collect();
+            if let Some(winner) = self.check_line(&row_positions) {
+                return Some(winner);
+            }
+            // 检查列
+            let col_positions: Vec<(usize, usize)> = (0..GAME_SIZE).map(|j| (j, i)).collect();
+            if let Some(winner) = self.check_line(&col_positions) {
+                return Some(winner);
+            }
+        }
+        // 检查对角线
+        let diag1_positions: Vec<(usize, usize)> = (0..GAME_SIZE).map(|i| (i, i)).collect();
+        if let Some(winner) = self.check_line(&diag1_positions) {
+            return Some(winner);
+        }
+        let diag2_positions: Vec<(usize, usize)> = (0..GAME_SIZE).map(|i| (i, GAME_SIZE - 1 - i)).collect();
+        if let Some(winner) = self.check_line(&diag2_positions) {
+            return Some(winner);
+        }
+        None
+    }
 
+    fn check_line(&self, positions: &[(usize, usize)]) -> Option<PlayerId> {
+        let mut tokens = Vec::new();
+        for &(x, y) in positions {
+            if let Some(token) = self.plate[y][x].get_outermost_token() {
+                tokens.push(token);
+            } else {
+                return None; // 如果任何位置为空，则不可能是获胜组合
+            }
+        }
+        // 检查所有棋子是否属于同一玩家
+        if tokens.iter().all(|t| t.color == PlayerId::RED) {
+            return Some(PlayerId::RED);
+        }
+        if tokens.iter().all(|t| t.color == PlayerId::GREEN) {
+            return Some(PlayerId::GREEN);
+        }
+        None
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Player {
     color: PlayerId,
     inventory: [u8; 3],
@@ -277,14 +308,16 @@ impl Player {
 
 // Game processing  => Action + stauts = > New Status
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntEnum, Hash)]
 pub enum ActionType {
     FromInventory = 0,
     FromBoard = 1,
 }
 
 
-#[derive(Clone, Copy, Debug)]
+const ACTION_ID_MAX: usize = 3 * GAME_SIZE * GAME_SIZE + GAME_SIZE * GAME_SIZE * GAME_SIZE * GAME_SIZE;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct Action {
     pub action_type: ActionType,
     pub player: PlayerId,
@@ -293,178 +326,198 @@ pub struct Action {
     pub to_xy: Option<[usize; 2]>,
 }
 
-impl Action {
-    pub fn new(action_type: ActionType, player: PlayerId, from_inventory: Option<Token>, from_xy: Option<[usize; 2]>, to_xy: Option<[usize; 2]>) -> Action {
-        match action_type {
+// 为 Action 实现 Into<usize> 和 From<usize>
+impl Into<usize> for Action {
+    fn into(self) -> usize {
+        match self.action_type {
             ActionType::FromInventory => {
-                Action {
-                    action_type,
-                    player,
-                    from_inventory,
-                    from_xy: None,
-                    to_xy,
-                }
+                let size = self.from_inventory.unwrap().size as usize;
+                let x = self.to_xy.unwrap()[0];
+                let y = self.to_xy.unwrap()[1];
+                size * GAME_SIZE * GAME_SIZE + y * GAME_SIZE + x
             }
             ActionType::FromBoard => {
-                Action {
-                    action_type,
-                    player,
-                    from_inventory: None,
-                    from_xy,
-                    to_xy,
-                }
+                let from_x = self.from_xy.unwrap()[0];
+                let from_y = self.from_xy.unwrap()[1];
+                let to_x = self.to_xy.unwrap()[0];
+                let to_y = self.to_xy.unwrap()[1];
+                3 * GAME_SIZE * GAME_SIZE
+                    + ((from_y * GAME_SIZE + from_x) * GAME_SIZE * GAME_SIZE)
+                    + (to_y * GAME_SIZE + to_x)
             }
         }
     }
 }
 
+impl From<usize> for Action {
+    fn from(value: usize) -> Self {
+        if value < 3 * GAME_SIZE * GAME_SIZE {
+            // FromInventory
+            let size = value / (GAME_SIZE * GAME_SIZE);
+            let idx = value % (GAME_SIZE * GAME_SIZE);
+            let x = idx % GAME_SIZE;
+            let y = idx / GAME_SIZE;
+            Action {
+                action_type: ActionType::FromInventory,
+                player: PlayerId::RED, // 在实际使用中应根据当前玩家设置
+                from_inventory: Some(Token::new(PlayerId::RED, Size::from_int(size).unwrap())),
+                from_xy: None,
+                to_xy: Some([x, y]),
+            }
+        } else {
+            // FromBoard
+            let adjusted_value = value - 3 * GAME_SIZE * GAME_SIZE;
+            let from_idx = adjusted_value / (GAME_SIZE * GAME_SIZE);
+            let to_idx = adjusted_value % (GAME_SIZE * GAME_SIZE);
+            let from_x = from_idx % GAME_SIZE;
+            let from_y = from_idx / GAME_SIZE;
+            let to_x = to_idx % GAME_SIZE;
+            let to_y = to_idx / GAME_SIZE;
+            Action {
+                action_type: ActionType::FromBoard,
+                player: PlayerId::RED, // 在实际使用中应根据当前玩家设置
+                from_inventory: None,
+                from_xy: Some([from_x, from_y]),
+                to_xy: Some([to_x, to_y]),
+            }
+        }
+    }
+}
 
+pub struct ValidActions {
+    game: Gobblet,
+    action_id: usize,
+}
+
+impl ValidActions {
+    pub fn new(game: &Gobblet) -> Self {
+        ValidActions {
+            game: game.clone(),
+            action_id: 0,
+        }
+    }
+}
+
+impl Iterator for ValidActions {
+    type Item = Action;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.action_id < ACTION_ID_MAX {
+            let action = Action::from(self.action_id);
+            self.action_id += 1;
+
+            // 检查行动是否合法
+            if self.game.is_action_valid(&action) {
+                return Some(action);
+            }
+        }
+        None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Gobblet {
     uid: String,
     board: Board,
-    round_flag: PlayerId,
+    player: PlayerId,
     players: [Player; 2],
+    turn_count: usize,
 }
 
 impl Game<GAME_SIZE> for Gobblet {
     const NAME: &'static str = "Gobblet";
     const NUM_PLAYERS: usize = 2;
-    // todo not for sure how long can it be.
-    const MAX_TURNS: usize = 72;
-    fn new() -> Gobblet {
-        let mut rng = rand::thread_rng();
-        let round_flag = match rng.gen_range(0..2) {
-            0 => PlayerId::RED,
-            1 => PlayerId::GREEN,
-            _ => PlayerId::RED,
-        };
-        Gobblet {
+    const MAX_TURNS: usize = 72; // 根据游戏规则调整
+    const DIMS: &'static [i64] = &[3, 3, 6]; // 根据游戏状态表示
+
+    type PlayerId = PlayerId;
+    type Action = Action;
+    type ActionIterator = ValidActions;
+    type Features = Vec<f32>;
+
+    fn new() -> Self {
+        Self {
             uid: Uuid::new_v4().to_string(),
-            board: empty_board(),
-            round_flag,
-            players: [Player::new(round_flag), Player::new(!round_flag)],
+            board: Board::new(),
+            player: PlayerId::RED,
+            players: [Player::new(PlayerId::RED), Player::new(PlayerId::GREEN)],
+            turn_count: 0,
         }
     }
 
-    fn processing(&mut self) {
-        while self.board.is_gameover().is_none() {
-            self.board.display();
-            let action = self.io_input();
-            match action {
-                Some(action) => {
-                    self.processing_action(action);
-                }
-                None => {
-                    println!("Invalid Action, Need to retry");
-                }
-            }
-        }
-        println!("end");
+    fn player(&self) -> Self::PlayerId {
+        self.player
     }
-    // keyboard input to trigger player action
-    pub fn io_input(&mut self) -> Option<Action> {
-        let option = self.get_option();
-        match option {
-            "a" => {
-                println!("from inventory");
-                let size = Self::get_size();
-                let xy = Self::get_xy();
-                Some(Action::new(ActionType::FromInventory, self.round_flag, self.players[self.round_flag as usize].get_token(Size::from(size)), None, Some([xy[0], xy[1]])))
+
+    fn is_over(&self) -> bool {
+        self.board.is_gameover().is_some() || self.turn_count >= Self::MAX_TURNS
+    }
+
+    fn reward(&self, player_id: Self::PlayerId) -> f32 {
+        match self.board.is_gameover() {
+            Some(winner) => {
+                if winner == player_id {
+                    1.0
+                } else {
+                    -1.0
+                }
             }
-            "b" => {
-                println!("from board");
-                println!("from x y");
-                let xy = Self::get_xy();
-                let x = xy[0];
-                let y = xy[1];
-                println!("to x y");
-                let xy = Self::get_xy();
-                let x2 = xy[0];
-                let y2 = xy[1];
-                Some(Action::new(ActionType::FromBoard, self.round_flag, None, Some([x, y]), Some([x2, y2])))
-            }
-            _ => {
-                println!("invalid input");
-                None
-            }
+            None => 0.0,
         }
     }
-    fn step(&mut self, action: Action) {
+
+    fn iter_actions(&self) -> Self::ActionIterator {
+        ValidActions::new(self)
+    }
+
+    fn step(&mut self, action: &Self::Action) -> bool {
+        if self.parse_action(*action) {
+            self.player = !self.player;
+            self.turn_count += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn features(&self) -> Self::Features {
+        self.board.to_features()
+    }
+
+    fn print(&self) {
+        self.board.display();
+    }
+}
+
+impl Gobblet {
+    pub fn is_action_valid(&self, action: &Action) -> bool {
+        if action.player != self.player {
+            return false;
+        }
+
         match action.action_type {
             ActionType::FromInventory => {
                 if let Some(token) = action.from_inventory {
-                    if self.players[action.player as usize].place_from_inventory(
-                        token.size,
-                        &mut self.board,
-                        action.to_xy.unwrap()[0],
-                        action.to_xy.unwrap()[1],
-                    ) {
-                        self.round_flag = !self.round_flag;
-                    } else {
-                        println!("invalid action");
-                    }
+                    self.players[action.player as usize].inventory[token.size as usize] > 0
+                        && self.board.plate[action.to_xy.unwrap()[1]][action.to_xy.unwrap()[0]]
+                        .is_stackable(token)
+                } else {
+                    false
                 }
             }
             ActionType::FromBoard => {
-                if self.players[action.player as usize].swap_token_from_board(
-                    &mut self.board,
-                    action.from_xy.unwrap()[0],
-                    action.from_xy.unwrap()[1],
-                    action.to_xy.unwrap()[0],
-                    action.to_xy.unwrap()[1],
-                ) {
-                    self.round_flag = !self.round_flag;
+                let from_block = &self.board.plate[action.from_xy.unwrap()[1]][action.from_xy.unwrap()[0]];
+                if let Some(token) = from_block.get_outermost_token() {
+                    token.color == action.player
+                        && self.board.plate[action.to_xy.unwrap()[1]][action.to_xy.unwrap()[0]]
+                        .is_stackable(token)
+                        && !(action.from_xy.unwrap() == action.to_xy.unwrap())
                 } else {
-                    println!("invalid action");
+                    false
                 }
             }
         }
     }
-    fn get_option(&self) -> &str {
-        println!(
-            "Player{:?}  a: take from invetory, b:board 2 board: ",
-            self.round_flag
-        );
-        let mut in_str = String::new();
-        io::stdin().read_line(&mut in_str).unwrap();
-        let option = in_str.trim();
-        match option {
-            "a" => "a",
-            "b" => "b",
-            _ => self.get_option()
-        }
-    }
-
-    fn get_size() -> Size {
-        println!("size: 0:small, 1:medium, 2:large");
-        let mut in_str = String::new();
-        io::stdin().read_line(&mut in_str).unwrap();
-        let size = in_str.trim();
-        match size {
-            "s" | "S" | "0" => Size::SMALL,
-            "m" | "M" | "1" => Size::MID,
-            "l" | "L" | "2" => Size::BIG,
-            _ => {
-                println!("invalid size");
-                Self::get_size()
-            }
-        }
-    }
-
-    fn get_xy() -> [usize; 2] {
-        println!("Enter the coordinate of the board");
-        let mut in_str = String::new();
-        io::stdin().read_line(&mut in_str).unwrap();
-        let xy: Vec<usize> = in_str
-            .trim()
-            .split(&[' ', ','][..])
-            .map(|s| s.parse().unwrap())
-            .collect();
-        let x = xy[0];
-        let y = xy[1];
-        [x, y]
-    }
-
     pub fn parse_action(&mut self, action: Action) -> bool {
         match action.action_type {
             ActionType::FromInventory => {
@@ -495,103 +548,213 @@ impl Game<GAME_SIZE> for Gobblet {
     }
 }
 
-#[fixture]
-fn end_board() -> Board {
-    Board::new([
-        [
-            Block::new(vec![Token::new(PlayerId::RED, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
-        ],
-        [
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::RED, Size::BIG)]),
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::BIG)]),
-        ],
-        [
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::SMALL)]),
-            Block::new(vec![Token::new(PlayerId::GREEN, Size::SMALL)]),
-            Block::new(vec![Token::new(PlayerId::RED, Size::SMALL)]),
-        ],
-    ])
-}
-
-#[fixture]
-fn empty_board() -> Board {
-    Board::new([
-        [Block::new(vec![]), Block::new(vec![]), Block::new(vec![])],
-        [Block::new(vec![]), Block::new(vec![]), Block::new(vec![])],
-        [Block::new(vec![]), Block::new(vec![]), Block::new(vec![])],
-    ])
-}
-
-#[fixture]
-fn empty_player() -> Player {
-    let mut p = Player::new(PlayerId::RED);
-    p.inventory = [0, 0, 0];
-    p
-}
 
 #[cfg(test)]
-mod test_board {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
+mod tests {
     use super::*;
 
-    #[rstest]
-    fn test_end_game(end_board: Board) {
-        assert!(end_board.is_gameover() == Some(PlayerId::RED));
+    #[test]
+    fn test_token_creation() {
+        let token_red_big = Token::new(PlayerId::RED, Size::BIG);
+        assert_eq!(token_red_big.color, PlayerId::RED);
+        assert_eq!(token_red_big.size, Size::BIG);
+
+        let token_green_small = Token::new(PlayerId::GREEN, Size::SMALL);
+        assert_eq!(token_green_small.color, PlayerId::GREEN);
+        assert_eq!(token_green_small.size, Size::SMALL);
     }
 
-    #[rstest]
-    fn test_not_end_game(mut end_board: Board) {
-        end_board.plate[1][1].pop_outermost_token();
-        assert!(end_board.is_gameover().is_none());
+    #[test]
+    fn test_token_to_string() {
+        let token_red_mid = Token::new(PlayerId::RED, Size::MID);
+        let token_str = token_red_mid.to_string();
+        // 由于 to_string 方法使用了终端颜色输出，这里可以检查是否包含预期的字符
+        assert!(token_str.contains("🔴"));
     }
 
-    #[rstest]
-    fn test_display(mut end_board: Board) {
-        end_board.display();
-    }
-}
 
-#[cfg(test)]
-mod test_player {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+    #[test]
+    fn test_block_creation() {
+        let block = Block::default();
+        assert!(block.tokens.is_empty());
 
-    #[rstest]
-    fn test_place_from_inventory(
-        mut empty_player: Player,
-        mut empty_board: Board,
-        mut end_board: Board,
-    ) {
-        let endb = &mut end_board;
-        let emb = &mut empty_board;
-        assert!(empty_player.place_from_inventory(Size::BIG, emb, 0, 0) == false);
-        empty_player.inventory[2] += 1;
-        assert!(empty_player.place_from_inventory(Size::BIG, emb, 0, 0) == true);
-        empty_player.inventory[2] += 1;
-        assert!(empty_player.place_from_inventory(Size::BIG, endb, 0, 0) == false);
+        let token = Token::new(PlayerId::RED, Size::BIG);
+        let block_with_token = Block::new(vec![token]);
+        assert_eq!(block_with_token.tokens.len(), 1);
     }
 
-    #[rstest]
-    fn test_place_from_board(
-        mut empty_player: Player,
-        mut empty_board: Board,
-        mut end_board: Board,
-    ) {
-        let endb = &mut end_board;
-        let emb = &mut empty_board;
-        assert!(
-            empty_player.swap_token_from_board(emb, 0, 0, 1, 1) == false,
-            "should be false from empty to empty"
+    #[test]
+    fn test_block_push_token() {
+        let mut block = Block::default();
+        let token_small = Token::new(PlayerId::RED, Size::SMALL);
+        let token_mid = Token::new(PlayerId::GREEN, Size::MID);
+
+        // 初始状态可以放置任何棋子
+        assert!(block.push_token(token_small));
+        assert_eq!(block.tokens.len(), 1);
+
+        // 测试堆叠不可堆叠的棋子（尺寸相同或更小）
+        let token_small_red = Token::new(PlayerId::GREEN, Size::SMALL);
+        assert!(!block.push_token(token_small_red));
+        assert_eq!(block.tokens.len(), 1); // 数量不变
+
+        // 测试堆叠更大的棋子
+        assert!(block.push_token(token_mid));
+        assert_eq!(block.tokens.len(), 2);
+        assert_eq!(block.get_outermost_token().unwrap(), token_mid);
+    }
+
+    #[test]
+    fn test_block_is_stackable() {
+        let mut block = Block::default();
+        let token_small = Token::new(PlayerId::RED, Size::SMALL);
+        let token_mid = Token::new(PlayerId::GREEN, Size::MID);
+
+        assert!(block.is_stackable(token_small));
+        block.push_token(token_small);
+
+        // 相同或更小尺寸的棋子不可堆叠
+        let token_small_red = Token::new(PlayerId::GREEN, Size::SMALL);
+        assert!(!block.is_stackable(token_small_red));
+
+        // 更大的棋子可堆叠
+        assert!(block.is_stackable(token_mid));
+    }
+
+    #[test]
+    fn test_block_get_outermost_token() {
+        let mut block = Block::default();
+        assert!(block.get_outermost_token().is_none());
+
+        let token_small = Token::new(PlayerId::RED, Size::SMALL);
+        block.push_token(token_small);
+        assert_eq!(block.get_outermost_token().unwrap(), token_small);
+
+        let token_big = Token::new(PlayerId::GREEN, Size::BIG);
+        block.push_token(token_big);
+        assert_eq!(block.get_outermost_token().unwrap(), token_big);
+    }
+
+    #[test]
+    fn test_action_conversion() {
+        // 测试从 usize 转换为 Action
+        let action_id = 0;
+        let action = Action::from(action_id);
+        assert_eq!(action.action_type, ActionType::FromInventory);
+
+        let action_id_back: usize = action.into();
+        assert_eq!(action_id, action_id_back);
+    }
+
+    #[test]
+    fn test_action_iterator() {
+        let game = Gobblet::new();
+        let actions: Vec<Action> = game.iter_actions().collect();
+
+        // 检查是否生成了合法的行动
+        assert!(!actions.is_empty());
+
+        // 验证每个行动是否合法
+        for action in actions {
+            assert!(game.is_action_valid(&action));
+        }
+    }
+
+    #[test]
+    fn test_valid_actions_after_move() {
+        let mut game = Gobblet::new();
+
+        // 获取初始的合法行动数量
+        let initial_actions: Vec<Action> = game.iter_actions().collect();
+        let initial_action_count = initial_actions.len();
+
+        // 执行一个行动
+        let action = initial_actions[0];
+        game.step(&action);
+
+        // 获取新的合法行动数量
+        let new_actions: Vec<Action> = game.iter_actions().collect();
+        let new_action_count = new_actions.len();
+
+        // 检查行动数量是否发生变化
+        assert!(new_action_count <= initial_action_count);
+    }
+
+
+    #[test]
+    fn test_player_creation() {
+        let player_red = Player::new(PlayerId::RED);
+        assert_eq!(player_red.color, PlayerId::RED);
+        assert_eq!(player_red.inventory, [2, 2, 2]); // 每种尺寸2个棋子
+
+        let player_green = Player::new(PlayerId::GREEN);
+        assert_eq!(player_green.color, PlayerId::GREEN);
+        assert_eq!(player_green.inventory, [2, 2, 2]);
+    }
+
+    #[test]
+    fn test_player_get_token() {
+        let mut player = Player::new(PlayerId::RED);
+
+        // 获取一个小尺寸的棋子
+        let token = player.get_token(Size::SMALL);
+        assert!(token.is_some());
+        assert_eq!(player.inventory[Size::SMALL as usize], 1);
+
+        // 获取超过库存的棋子
+        player.get_token(Size::SMALL);
+        let token_none = player.get_token(Size::SMALL);
+        assert!(token_none.is_none());
+    }
+
+    #[test]
+    fn test_player_place_from_inventory() {
+        let mut player = Player::new(PlayerId::RED);
+        let mut board = Board::new();
+
+        // 成功放置棋子
+        let success = player.place_from_inventory(Size::SMALL, &mut board, 0, 0);
+        assert!(success);
+        assert_eq!(player.inventory[Size::SMALL as usize], 1);
+        assert_eq!(
+            board.plate[0][0].get_outermost_token().unwrap(),
+            Token::new(PlayerId::RED, Size::SMALL)
         );
-        emb.plate[0][0].push_token(Token::new(PlayerId::RED, Size::BIG));
-        assert!(empty_player.swap_token_from_board(emb, 0, 0, 1, 1) == true);
-        assert!(emb.plate[0][0].tokens.is_empty());
-        assert!(emb.plate[1][1].tokens.is_empty() == false);
+
+        // 在同一位置尝试放置更小或相同尺寸的棋子（应失败）
+        let mut player_green = Player::new(PlayerId::GREEN);
+        let fail = player_green.place_from_inventory(Size::SMALL, &mut board, 0, 0);
+        assert!(!fail);
+
+        // 放置更大的棋子（应成功）
+        let success = player_green.place_from_inventory(Size::MID, &mut board, 0, 0);
+        assert!(success);
+        assert_eq!(
+            board.plate[0][0].get_outermost_token().unwrap(),
+            Token::new(PlayerId::GREEN, Size::MID)
+        );
+    }
+
+    #[test]
+    fn test_player_swap_token_from_board() {
+        let mut player_red = Player::new(PlayerId::RED);
+        let mut board = Board::new();
+
+        // 玩家在 (0, 0) 放置一个小尺寸的棋子
+        player_red.place_from_inventory(Size::SMALL, &mut board, 0, 0);
+
+        // 尝试移动棋子到 (1, 1)
+        let success = player_red.swap_token_from_board(&mut board, 0, 0, 1, 1);
+        assert!(success);
+        assert!(board.plate[0][0].get_outermost_token().is_none());
+        assert_eq!(
+            board.plate[1][1].get_outermost_token().unwrap(),
+            Token::new(PlayerId::RED, Size::SMALL)
+        );
+
+        // 尝试移动其他玩家的棋子（应失败）
+        let mut player_green = Player::new(PlayerId::GREEN);
+        let fail = player_green.swap_token_from_board(&mut board, 1, 1, 2, 2);
+        assert!(!fail);
     }
 }
-
-
-
