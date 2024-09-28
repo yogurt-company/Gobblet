@@ -72,15 +72,15 @@ impl<G: Game<N>, const N: usize> Node<G, N> {
         self.num_children == 0 && self.solution.is_none()
     }
 
-    #[inline]
-    fn is_visited(&self) -> bool {
-        self.num_children != 0
-    }
+    // #[inline]
+    // fn is_visited(&self) -> bool {
+    //     self.num_children != 0
+    // }
 
-    #[inline]
-    fn is_unsolved(&self) -> bool {
-        self.solution.is_none()
-    }
+    // #[inline]
+    // fn is_unsolved(&self) -> bool {
+    //     self.solution.is_none()
+    // }
 
     #[inline]
     fn last_child(&self) -> NodeId {
